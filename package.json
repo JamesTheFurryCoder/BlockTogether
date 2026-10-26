@@ -1,0 +1,11 @@
+{
+  "scripts": {
+    "start": "vite --open /index.html"
+  },
+  "dependencies": {
+    "noa-engine": "^0.33.0"
+  },
+  "devDependencies": {
+    "vite": "^6.0.0"
+  }
+}
