@@ -1,0 +1,13 @@
+{
+  "name": "blocktogether-backend",
+  "version": "1.0.0",
+  "description": "Express backend for BlockTogether (TCSS 460 Phase II)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2"
+  }
+}
