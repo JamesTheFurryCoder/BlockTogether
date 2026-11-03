@@ -1,0 +1,16 @@
+{
+  "user": { "userId": 1, "username": "demo_player" },
+  "blocks": [
+    { "x": 0, "y": 1, "z": 0, "blockId": 1 },
+    { "x": 1, "y": 1, "z": 0, "blockId": 2 },
+    { "x": 2, "y": 1, "z": 0, "blockId": 3 }
+  ],
+  "sessions": [
+    { "sessionId": 1, "userId": 1, "startedAt": "2026-11-01T18:00:00.000Z", "endedAt": "2026-11-01T18:45:00.000Z", "durationMinutes": 45 },
+    { "sessionId": 2, "userId": 1, "startedAt": "2026-11-02T19:00:00.000Z", "endedAt": "2026-11-02T19:30:00.000Z", "durationMinutes": 30 }
+  ],
+  "events": [
+    { "eventId": 1, "sessionId": 1, "type": "block_placed", "x": 0, "y": 1, "z": 0, "timestamp": "2026-11-01T18:05:00.000Z" },
+    { "eventId": 2, "sessionId": 1, "type": "position", "x": 4.5, "y": 2, "z": -1.2, "timestamp": "2026-11-01T18:06:00.000Z" }
+  ]
+}
