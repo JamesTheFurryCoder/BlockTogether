@@ -1,19 +1,94 @@
 import { Engine } from 'noa-engine'
 
-function create3DArray(x, y, z, initialValue = 0) {
-  return Array.from({ length: x }, () =>
-    Array.from({ length: y }, () =>
-      Array(z).fill(initialValue)
-    )
-  );
+// Keys are chunk coordinates (for example, "0,-1,2"); values are plain block arrays.
+const grid = new Map();
+const pendingSaves = new Map();
+const PENDING_SAVE_KEY = 'blocktogether:pending-chunks';
+let saveQueue = Promise.resolve();
+
+function chunkKey(i, j, k) {
+  return `${i},${j},${k}`;
 }
 
-const x = 100;
-const y = 100;
-const z = 100;
+async function loadGrid() {
+  try {
+    const response = await fetch('/api/player-save');
+    if (!response.ok) throw new Error('Could not load chunk data');
+    const chunks = await response.json();
 
-// in the future, we will use this to serialize and save into playerSaveData.
-const grid = create3DArray(x, y, z);
+    // The JSON file stores chunks as chunks[i][j][k].
+    for (const [i, rows] of Object.entries(chunks)) {
+      for (const [j, columns] of Object.entries(rows)) {
+        for (const [k, blocks] of Object.entries(columns)) {
+          grid.set(chunkKey(i, j, k), blocks);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Could not load playerSaveData/world.json:', error);
+  }
+
+  // A refresh can interrupt queued requests. Pending edits override older JSON data.
+  try {
+    const pending = JSON.parse(localStorage.getItem(PENDING_SAVE_KEY) || '[]');
+    for (const [key, blocks] of pending) {
+      pendingSaves.set(key, blocks);
+      grid.set(key, blocks);
+      queueChunkSave(key.split(',').map(Number), blocks);
+    }
+  } catch (error) {
+    console.error('Could not restore pending chunk saves:', error);
+  }
+}
+
+function storePendingSaves() {
+  try {
+    if (pendingSaves.size) {
+      localStorage.setItem(PENDING_SAVE_KEY, JSON.stringify([...pendingSaves]));
+    } else {
+      localStorage.removeItem(PENDING_SAVE_KEY);
+    }
+  } catch (error) {
+    console.error('Could not back up pending chunk saves:', error);
+  }
+}
+
+function queueChunkSave(indexes, blocks) {
+  const key = chunkKey(...indexes);
+  saveQueue = saveQueue.then(async () => {
+    // Only send the latest snapshot if several edits to this chunk are queued.
+    if (pendingSaves.get(key) !== blocks) return;
+
+    const response = await fetch('/api/player-save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ indexes, blocks }),
+    });
+    if (!response.ok) throw new Error('Could not save chunk data');
+
+    // An older response must not clear a newer edit's backup.
+    if (pendingSaves.get(key) === blocks) {
+      pendingSaves.delete(key);
+      storePendingSaves();
+    }
+  }).catch(error => {
+    console.error('Could not save playerSaveData/world.json:', error);
+  });
+}
+
+function saveChunk(chunk) {
+  // Copy after the edit so the saved data survives the chunk unloading.
+  const indexes = [chunk.i, chunk.j, chunk.k];
+  const blocks = Array.from(chunk.voxels.data);
+  const key = chunkKey(...indexes);
+  grid.set(key, blocks);
+  pendingSaves.set(key, blocks);
+  // This synchronous backup survives refresh even before a request is sent.
+  storePendingSaves();
+  queueChunkSave(indexes, blocks);
+}
+
+const gridReady = loadGrid();
 
 const GRASS = 1
 const DIRT = 2
@@ -48,8 +123,17 @@ noa.registry.registerBlock(STONE, {
   opaque: true,
 })
 
-noa.world.on('worldDataNeeded', (requestID, data, chunkX, chunkY, chunkZ) => {
+noa.world.on('worldDataNeeded', async (requestID, data, chunkX, chunkY, chunkZ) => {
+  await gridReady;
   const [sizeX, sizeY, sizeZ] = data.shape
+  const key = chunkKey(chunkX / sizeX, chunkY / sizeY, chunkZ / sizeZ);
+
+  if (grid.has(key)) {
+    // Replace the entire chunk's block data instead of generating terrain.
+    data.data.set(grid.get(key));
+    noa.world.setChunkData(requestID, data);
+    return;
+  }
 
   for (let x = 0; x < sizeX; x += 1) {
     for (let y = 0; y < sizeY; y += 1) {
@@ -82,14 +166,10 @@ noa.inputs.down.on('fire', () => {
   if (!chunk) return // chunk isn't loaded
 
   console.log('Chunk:', chunk)
-  // use chunk index to save into our array we made at initialization of game
+  // Use chunk indexes to identify this chunk in the map.
   console.log('Chunk indexes:', [chunk.i, chunk.j, chunk.k])
   console.log('World origin:', chunk.pos)
-  // we use this actual data from to do grid[x][y][z] = chunk.voxels
   console.log('All block data:', chunk.voxels)
-
-  // store data into grid array.
-  grid[chunk.i][chunk.j][chunk.z] = chunk.voxels;
 
   // Read a block using coordinates local to this chunk:
   const blockID = chunk.voxels.get(
@@ -100,6 +180,7 @@ noa.inputs.down.on('fire', () => {
   console.log('Target block:', blockID)
 
   noa.setBlock(0, [x, y, z])
+  saveChunk(chunk);
 })
 
 noa.inputs.down.on('alt-fire', () => {
@@ -110,20 +191,18 @@ noa.inputs.down.on('alt-fire', () => {
   if (!chunk) return // chunk isn't loaded
 
   console.log('Chunk:', chunk)
-  // use chunk index to save into our array we made at initialization of game
+  // Use chunk indexes to identify this chunk in the map.
   console.log('Chunk indexes:', [chunk.i, chunk.j, chunk.k])
   console.log('World origin:', chunk.pos)
-  // we use this actual data from to do grid[x][y][z] = chunk.voxels
   console.log('All block data:', chunk.voxels)
-
-  // store data into grid array.
-  grid[chunk.i][chunk.j][chunk.z] = chunk.voxels;
 
   const position = noa.targetedBlock.adjacent
   if (noa.getBlock(position) !== 0) return
 
   // addBlock checks entity collisions so we cannot build inside the player.
-  noa.addBlock(GRASS, position)
+  if (noa.addBlock(GRASS, position) === GRASS) {
+    saveChunk(chunk);
+  }
 })
 
 export default noa

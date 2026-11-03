@@ -1,7 +1,8 @@
 const fs = require('node:fs')
 const path = require('node:path')
 
-const savePath = path.join(__dirname, 'playerSaveData.json')
+const savePath = path.join(__dirname, 'playerSaveData', 'world.json')
+fs.mkdirSync(path.dirname(savePath), { recursive: true })
 
 // Runs in Node through Vite, allowing the game to save to a project file.
 function playerSaveMiddleware(req, res, next) {
@@ -16,7 +17,7 @@ function playerSaveMiddleware(req, res, next) {
       const chunks = JSON.parse(fs.readFileSync(savePath, 'utf8'))
       res.end(JSON.stringify(chunks))
     } catch (error) {
-      console.error('Could not read playerSaveData.json:', error)
+      console.error('Could not read playerSaveData/world.json:', error)
       res.statusCode = 500
       res.end(JSON.stringify({ error: 'Could not read save file' }))
     }
@@ -32,20 +33,18 @@ function playerSaveMiddleware(req, res, next) {
   let body = ''
   req.on('data', chunk => {
     body += chunk
-    if (body.length > 4096) req.destroy()
+    if (body.length > 1024 * 1024) req.destroy()
   })
   req.on('end', () => {
     let edit
     try {
       edit = JSON.parse(body)
-      const { chunkKey, localKey, blockID } = edit
-      const coordinates = /^-?\d+,-?\d+,-?\d+$/
-      if (typeof chunkKey !== 'string' || !coordinates.test(chunkKey)
-        || !chunkKey.split(',').every(value => Number.isSafeInteger(+value) && +value % 24 === 0)
-        || typeof localKey !== 'string' || !coordinates.test(localKey)
-        || !localKey.split(',').every(value => +value >= 0 && +value < 24)
-        || !Number.isInteger(blockID) || blockID < 0 || blockID > 3) {
-        throw new Error('Invalid block edit')
+      const { indexes, blocks } = edit
+      if (!Array.isArray(indexes) || indexes.length !== 3
+        || !indexes.every(Number.isSafeInteger)
+        || !Array.isArray(blocks) || blocks.length !== 24 ** 3
+        || !blocks.every(value => Number.isInteger(value) && value >= 0 && value <= 3)) {
+        throw new Error('Invalid chunk data')
       }
     } catch {
       res.statusCode = 400
@@ -56,14 +55,16 @@ function playerSaveMiddleware(req, res, next) {
       const chunks = fs.existsSync(savePath)
         ? JSON.parse(fs.readFileSync(savePath, 'utf8'))
         : {}
-      chunks[edit.chunkKey] ??= {}
-      chunks[edit.chunkKey][edit.localKey] = edit.blockID
+      const [i, j, k] = edit.indexes
+      chunks[i] ??= {}
+      chunks[i][j] ??= {}
+      chunks[i][j][k] = edit.blocks
       // Replace the file only after the complete save has been written.
       fs.writeFileSync(`${savePath}.tmp`, JSON.stringify(chunks, null, 2) + '\n')
       fs.renameSync(`${savePath}.tmp`, savePath)
       res.end(JSON.stringify({ saved: true }))
     } catch (error) {
-      console.error('Could not write playerSaveData.json:', error)
+      console.error('Could not write playerSaveData/world.json:', error)
       res.statusCode = 500
       res.end(JSON.stringify({ error: 'Could not write save file' }))
     }
@@ -73,7 +74,7 @@ function playerSaveMiddleware(req, res, next) {
 module.exports = {
   server: {
     // Saving must not trigger a page refresh.
-    watch: { ignored: ['**/playerSaveData.json', '**/playerSaveData.json.tmp'] },
+    watch: { ignored: ['**/playerSaveData/**'] },
   },
   plugins: [{
     name: 'player-save',

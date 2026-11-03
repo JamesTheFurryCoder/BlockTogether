@@ -1,0 +1,17 @@
+Try to use ai and plain statistics to analyze the entire player movements and all inputs from entire game (x,y,z coordinates from players, blocks in the world, entity kills, what is put on player's avatar, or whatever is always a part of the game) and make an insight
+
+could tell players to take a break after a while (analyses of player hours)
+
+let backend control more of the frontend.
+
+use ai to analyze movements ingame
+
+average duration of the playtime of individual games
+
+more restful api requests
+
+all and all, think about collecting data from users. think about something like Netflix and collecting data from users, and how they make insights from what users needs and wants from user input.
+
+think about trying to implement way more backend features
+
+rely on ai for enhancements and improvements.
