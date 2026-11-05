@@ -31,4 +31,4 @@ cd frontend
 npm run build
 ```
 
-The voxel game and its tests are run from the repository root with `npm start` and `npm test`. Generated `dist/` output and installed `node_modules/` directories are excluded from source submissions.
+The landing page and voxel game run on the same frontend server. Click **Enter my home** to open `playerhome.html`; its game script is `frontend/playerHome.js`. World saves still use `playerSaveData/world.json` through the shared Vite API. You can also start the frontend from the repository root with `npm start`. Run the world-save tests from the repository root with `npm test`. Generated `dist/` output and installed `node_modules/` directories are excluded from source submissions.

@@ -8,7 +8,7 @@ const vm = require('node:vm');
 const ndarray = require('ndarray');
 
 const root = path.resolve(__dirname, '..');
-const source = fs.readFileSync(path.join(root, 'playerHome.js'), 'utf8')
+const source = fs.readFileSync(path.join(root, 'frontend', 'playerHome.js'), 'utf8')
   .replace("import { Engine } from 'noa-engine'", '')
   .replace('export default noa',
     'globalThis.game = {noa, grid, gridReady, waitForSaves: () => saveQueue}');

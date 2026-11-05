@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "start": "vite --open /index.html",
+    "start": "npm --prefix frontend start",
     "test": "node --test tests/*.test.cjs"
   },
   "dependencies": {

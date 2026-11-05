@@ -1,0 +1,372 @@
+
+.landing-page {
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  color: #202820;
+  background: #f8f9f6;
+  font-synthesis: none;
+  --green: #376b41;
+  --green-dark: #1f4a29;
+  --muted: #737a73;
+  --border: #e8e9e4;
+}
+.landing-page * {
+  box-sizing: border-box;
+}
+.landing-page,
+.landing-page h1,
+.landing-page h2,
+.landing-page h3,
+.landing-page p,
+.landing-page ul,
+.landing-page dl,
+.landing-page dd {
+  margin: 0;
+}
+.landing-page a {
+  text-decoration: none;
+}
+.landing-page .site-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #d7d7ce;
+  box-shadow: 0 2px 10px rgb(0 0 0 / 5%);
+}
+.landing-page .header-container,
+.landing-page .home-grid,
+.landing-page .footer-content {
+  width: min(1120px, 100%);
+  margin: 0 auto;
+}
+.landing-page .header-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px 24px;
+}
+.landing-page .logo {
+  color: #1a1a1a;
+  font-size: 24px;
+  font-weight: 700;
+}
+.landing-page .nav-list {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  gap: 30px;
+  padding: 0;
+  list-style: none;
+  transform: translate(-50%, -50%);
+}
+.landing-page .nav-link {
+  color: #666;
+  font-size: 16px;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+.landing-page .nav-link:hover,
+.landing-page .nav-link.active {
+  color: #0066cc;
+}
+.landing-page .home-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.85fr) minmax(0, 1.6fr);
+  align-items: start;
+  gap: 28px;
+  padding: 64px 24px 72px;
+}
+.landing-page .card {
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 12px 32px rgb(29 40 31 / 6%);
+}
+.landing-page .eyebrow {
+  color: #68766b;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+.landing-page .profile-heading {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin: 22px 0 16px;
+}
+.landing-page .avatar-wrap {
+  position: relative;
+  flex: 0 0 62px;
+}
+.landing-page .avatar {
+  display: grid;
+  width: 62px;
+  height: 62px;
+  place-items: center;
+  border-radius: 18px;
+  background: #d9ead8;
+  color: #315a38;
+  font-size: 20px;
+  font-weight: 700;
+}
+.landing-page .avatar-edit {
+  position: absolute;
+  right: -7px;
+  bottom: -5px;
+  padding: 3px 7px;
+  border: 1px solid #fff;
+  border-radius: 10px;
+  background: var(--green);
+  color: #fff;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.landing-page .avatar-edit:hover {
+  background: var(--green-dark);
+}
+.landing-page .avatar-edit:focus-visible {
+  outline: 2px solid var(--green-dark);
+  outline-offset: 2px;
+}
+.landing-page .profile-heading h1 {
+  font-size: 22px;
+}
+.landing-page .muted {
+  color: var(--muted);
+  font-size: 14px;
+}
+.landing-page .profile-bio {
+  line-height: 1.6;
+}
+.landing-page .profile-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 24px 0;
+  padding: 18px 0;
+  border-block: 1px solid #edf0eb;
+}
+.landing-page .profile-stats div {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 5px;
+}
+.landing-page .profile-stats dt {
+  color: #7a817a;
+  font-size: 11px;
+}
+.landing-page .profile-stats dd {
+  color: #27352a;
+  font-size: 17px;
+  font-weight: 700;
+}
+.landing-page .text-link,
+.landing-page .game-return {
+  color: var(--green);
+  font-size: 14px;
+  font-weight: 700;
+}
+.landing-page .text-link:hover,
+.landing-page .game-return:hover {
+  color: var(--green-dark);
+}
+.landing-page .section-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.landing-page .section-heading h2 {
+  margin-top: 7px;
+  font-size: 24px;
+}
+.landing-page .game-list {
+  display: grid;
+  gap: 12px;
+}
+.landing-page .game-card {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 14px;
+  border: 1px solid #edf0eb;
+  border-radius: 13px;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+.landing-page .game-card:hover {
+  transform: translateY(-2px);
+  border-color: #cadcc9;
+}
+.landing-page .game-icon {
+  display: grid;
+  flex: 0 0 48px;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border-radius: 12px;
+  font-size: 22px;
+}
+.landing-page .game-icon-sky {
+  background: #e5f1fa;
+}
+.landing-page .game-icon-puzzle {
+  background: #f2eafa;
+}
+.landing-page .game-icon-race {
+  background: #fff0df;
+}
+.landing-page .game-info {
+  min-width: 0;
+  flex: 1;
+}
+.landing-page .game-info h3 {
+  margin-bottom: 5px;
+  color: #29322a;
+  font-size: 15px;
+}
+.landing-page .game-info p {
+  font-size: 12px;
+}
+.landing-page .game-return {
+  font-size: 13px;
+}
+.landing-page .site-footer {
+  background: #25372a;
+  color: #fff;
+}
+.landing-page .footer-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 32px 24px;
+}
+.landing-page .footer-content h2 {
+  margin-bottom: 6px;
+  font-size: 20px;
+}
+.landing-page .footer-content p {
+  color: #c2cec3;
+  font-size: 14px;
+}
+.landing-page .footer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.landing-page .button {
+  display: inline-block;
+  padding: 12px 18px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 700;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+.landing-page .button-primary {
+  background: #d8ead5;
+  color: #25372a;
+}
+.landing-page .button-primary:hover {
+  background: #c5dfc0;
+}
+.landing-page .button-secondary {
+  border-color: #718375;
+  color: #fff;
+}
+.landing-page .button-secondary:hover {
+  background: #344c3a;
+}
+
+@media (max-width: 768px) {
+.landing-page .header-container {
+    flex-direction: column;
+    gap: 15px;
+    text-align: center;
+  }
+.landing-page .nav-list {
+    position: static;
+    gap: 20px;
+    transform: none;
+  }
+.landing-page .home-grid {
+    grid-template-columns: 1fr;
+    padding: 36px 20px 48px;
+  }
+.landing-page .footer-content {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 28px 20px;
+  }
+}
+
+@media (max-width: 480px) {
+.landing-page .card {
+    padding: 22px;
+  }
+.landing-page .game-card {
+    gap: 10px;
+    padding: 11px;
+  }
+.landing-page .game-icon {
+    flex-basis: 42px;
+    width: 42px;
+    height: 42px;
+  }
+.landing-page .game-info h3 {
+    font-size: 13px;
+  }
+.landing-page .game-info p {
+    font-size: 11px;
+  }
+.landing-page .section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+.landing-page {
+  min-height: 100vh;
+}
+
+.landing-page .site-header {
+  display: block;
+  padding: 0;
+}
+
+.landing-page .site-header nav .nav-link {
+  color: #666;
+  font-weight: 500;
+}
+
+.landing-page .site-header nav .nav-link:hover,
+.landing-page .site-header nav .nav-link.active {
+  color: #0066cc;
+}
+
+.landing-page .eyebrow {
+  margin-bottom: 0;
+}
+
+.landing-page .profile-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.landing-page .profile-actions button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.landing-page .profile-actions button:focus-visible {
+  outline: 2px solid var(--green-dark);
+  outline-offset: 3px;
+}
