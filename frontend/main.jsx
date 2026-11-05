@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './style.css'
 import LandingPageView from './LandingPageView'
 import PlayerStatsView from './PlayerStatsView'
+import Login from './login'
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001').replace(/\/$/, '')
 const STATS_ENDPOINT = `${API_BASE_URL}/api/users/me/stats`
@@ -32,8 +33,11 @@ function showLandingPage() {
   reactRoot.render(<LandingPage />)
 }
 
-function LandingPage() {
+function showLoginPage() {
+  reactRoot.render(<Login showLandingPage={showLandingPage} />)
+}
 
+function LandingPage() {
   return (
     <LandingPageView onViewStats={showPlayerStats} />
   )
@@ -96,4 +100,4 @@ const root = document.getElementById('stats-root')
 if (!root) throw new Error('Could not find the player statistics mount point.')
 
 const reactRoot = createRoot(root)
-reactRoot.render(<LandingPage />)
+reactRoot.render(<Login showLandingPage={showLandingPage} />)
