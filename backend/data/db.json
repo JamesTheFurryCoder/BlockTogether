@@ -1,16 +1,441 @@
 {
-  "user": { "userId": 1, "username": "demo_player" },
+  "user": {
+    "userId": 1,
+    "username": "demo_player"
+  },
   "blocks": [
-    { "x": 0, "y": 1, "z": 0, "blockId": 1 },
-    { "x": 1, "y": 1, "z": 0, "blockId": 2 },
-    { "x": 2, "y": 1, "z": 0, "blockId": 3 }
+    {
+      "x": 0,
+      "y": 1,
+      "z": 0,
+      "blockId": 1
+    },
+    {
+      "x": 1,
+      "y": 1,
+      "z": 0,
+      "blockId": 2
+    },
+    {
+      "x": 2,
+      "y": 1,
+      "z": 0,
+      "blockId": 3
+    }
   ],
   "sessions": [
-    { "sessionId": 1, "userId": 1, "startedAt": "2026-11-01T18:00:00.000Z", "endedAt": "2026-11-01T18:45:00.000Z", "durationMinutes": 45 },
-    { "sessionId": 2, "userId": 1, "startedAt": "2026-11-02T19:00:00.000Z", "endedAt": "2026-11-02T19:30:00.000Z", "durationMinutes": 30 }
+    {
+      "sessionId": 1,
+      "userId": 1,
+      "startedAt": "2026-11-01T18:00:00.000Z",
+      "endedAt": "2026-11-01T18:45:00.000Z",
+      "durationMinutes": 45
+    },
+    {
+      "sessionId": 2,
+      "userId": 1,
+      "startedAt": "2026-11-02T19:00:00.000Z",
+      "endedAt": "2026-11-02T19:30:00.000Z",
+      "durationMinutes": 30
+    },
+    {
+      "sessionId": 3,
+      "userId": 1,
+      "startedAt": "2026-11-06T11:43:46.711Z",
+      "endedAt": "2026-11-06T11:44:28.660Z",
+      "durationMinutes": 1
+    },
+    {
+      "sessionId": 4,
+      "userId": 1,
+      "startedAt": "2026-11-06T11:45:14.895Z",
+      "endedAt": "2026-11-06T11:47:23.085Z",
+      "durationMinutes": 2
+    },
+    {
+      "sessionId": 5,
+      "userId": 1,
+      "startedAt": "2026-11-06T12:09:17.485Z",
+      "endedAt": "2026-11-06T12:14:17.214Z",
+      "durationMinutes": 5
+    },
+    {
+      "sessionId": 6,
+      "userId": 1,
+      "startedAt": "2026-11-06T12:22:49.868Z",
+      "endedAt": "2026-11-06T12:23:07.487Z",
+      "durationMinutes": 0
+    }
   ],
   "events": [
-    { "eventId": 1, "sessionId": 1, "type": "block_placed", "x": 0, "y": 1, "z": 0, "timestamp": "2026-11-01T18:05:00.000Z" },
-    { "eventId": 2, "sessionId": 1, "type": "position", "x": 4.5, "y": 2, "z": -1.2, "timestamp": "2026-11-01T18:06:00.000Z" }
+    {
+      "eventId": 1,
+      "sessionId": 1,
+      "type": "block_placed",
+      "x": 0,
+      "y": 1,
+      "z": 0,
+      "timestamp": "2026-11-01T18:05:00.000Z"
+    },
+    {
+      "eventId": 2,
+      "sessionId": 1,
+      "type": "position",
+      "x": 4.5,
+      "y": 2,
+      "z": -1.2,
+      "timestamp": "2026-11-01T18:06:00.000Z"
+    },
+    {
+      "eventId": 3,
+      "sessionId": 6,
+      "type": "block_broken",
+      "x": 9,
+      "y": 0,
+      "z": 8,
+      "timestamp": "2026-11-06T12:22:52.346Z"
+    },
+    {
+      "eventId": 4,
+      "sessionId": 6,
+      "type": "block_broken",
+      "x": 9,
+      "y": 0,
+      "z": 9,
+      "timestamp": "2026-11-06T12:22:52.526Z"
+    },
+    {
+      "eventId": 5,
+      "sessionId": 6,
+      "type": "block_broken",
+      "x": 10,
+      "y": 0,
+      "z": 9,
+      "timestamp": "2026-11-06T12:22:52.700Z"
+    },
+    {
+      "eventId": 6,
+      "sessionId": 6,
+      "type": "block_broken",
+      "x": 11,
+      "y": 0,
+      "z": 9,
+      "timestamp": "2026-11-06T12:22:52.919Z"
+    },
+    {
+      "eventId": 7,
+      "sessionId": 6,
+      "type": "block_broken",
+      "x": 11,
+      "y": 0,
+      "z": 10,
+      "timestamp": "2026-11-06T12:22:53.090Z"
+    },
+    {
+      "eventId": 8,
+      "sessionId": 6,
+      "type": "block_broken",
+      "x": 12,
+      "y": 0,
+      "z": 10,
+      "timestamp": "2026-11-06T12:22:53.215Z"
+    },
+    {
+      "eventId": 9,
+      "sessionId": 6,
+      "type": "block_broken",
+      "x": 12,
+      "y": -1,
+      "z": 10,
+      "timestamp": "2026-11-06T12:22:53.358Z"
+    },
+    {
+      "eventId": 10,
+      "sessionId": 6,
+      "type": "block_broken",
+      "x": 12,
+      "y": 0,
+      "z": 9,
+      "timestamp": "2026-11-06T12:22:53.486Z"
+    },
+    {
+      "eventId": 11,
+      "sessionId": 6,
+      "type": "block_broken",
+      "x": 13,
+      "y": -1,
+      "z": 10,
+      "timestamp": "2026-11-06T12:22:53.609Z"
+    },
+    {
+      "eventId": 12,
+      "sessionId": 6,
+      "type": "block_broken",
+      "x": 10,
+      "y": 0,
+      "z": 8,
+      "timestamp": "2026-11-06T12:22:53.742Z"
+    },
+    {
+      "eventId": 13,
+      "sessionId": 6,
+      "type": "block_broken",
+      "x": 11,
+      "y": -1,
+      "z": 9,
+      "timestamp": "2026-11-06T12:22:53.862Z"
+    },
+    {
+      "eventId": 14,
+      "sessionId": 6,
+      "type": "block_broken",
+      "x": 11,
+      "y": -1,
+      "z": 10,
+      "timestamp": "2026-11-06T12:22:53.996Z"
+    },
+    {
+      "eventId": 15,
+      "sessionId": 6,
+      "type": "block_broken",
+      "x": 10,
+      "y": 0,
+      "z": 10,
+      "timestamp": "2026-11-06T12:22:54.130Z"
+    },
+    {
+      "eventId": 16,
+      "sessionId": 6,
+      "type": "block_broken",
+      "x": 10,
+      "y": 0,
+      "z": 11,
+      "timestamp": "2026-11-06T12:22:54.255Z"
+    },
+    {
+      "eventId": 17,
+      "sessionId": 6,
+      "type": "block_broken",
+      "x": 11,
+      "y": 0,
+      "z": 11,
+      "timestamp": "2026-11-06T12:22:54.389Z"
+    },
+    {
+      "eventId": 18,
+      "sessionId": 6,
+      "type": "block_broken",
+      "x": 11,
+      "y": -1,
+      "z": 11,
+      "timestamp": "2026-11-06T12:22:54.541Z"
+    },
+    {
+      "eventId": 19,
+      "sessionId": 6,
+      "type": "block_broken",
+      "x": 12,
+      "y": -2,
+      "z": 10,
+      "timestamp": "2026-11-06T12:22:54.686Z"
+    },
+    {
+      "eventId": 20,
+      "sessionId": 6,
+      "type": "block_broken",
+      "x": 13,
+      "y": -2,
+      "z": 10,
+      "timestamp": "2026-11-06T12:22:54.858Z"
+    },
+    {
+      "eventId": 21,
+      "sessionId": 6,
+      "type": "block_broken",
+      "x": 13,
+      "y": -3,
+      "z": 10,
+      "timestamp": "2026-11-06T12:22:56.005Z"
+    },
+    {
+      "eventId": 22,
+      "sessionId": 6,
+      "type": "block_placed",
+      "x": 13,
+      "y": -3,
+      "z": 10,
+      "timestamp": "2026-11-06T12:22:56.471Z"
+    },
+    {
+      "eventId": 23,
+      "sessionId": 6,
+      "type": "block_placed",
+      "x": 13,
+      "y": -2,
+      "z": 10,
+      "timestamp": "2026-11-06T12:22:56.716Z"
+    },
+    {
+      "eventId": 24,
+      "sessionId": 6,
+      "type": "block_placed",
+      "x": 12,
+      "y": -2,
+      "z": 10,
+      "timestamp": "2026-11-06T12:22:56.911Z"
+    },
+    {
+      "eventId": 25,
+      "sessionId": 6,
+      "type": "block_placed",
+      "x": 12,
+      "y": -1,
+      "z": 10,
+      "timestamp": "2026-11-06T12:22:57.224Z"
+    },
+    {
+      "eventId": 26,
+      "sessionId": 6,
+      "type": "block_broken",
+      "x": 21,
+      "y": 0,
+      "z": 10,
+      "timestamp": "2026-11-06T12:22:59.097Z"
+    },
+    {
+      "eventId": 27,
+      "sessionId": 6,
+      "type": "block_broken",
+      "x": 22,
+      "y": 0,
+      "z": 10,
+      "timestamp": "2026-11-06T12:22:59.308Z"
+    },
+    {
+      "eventId": 28,
+      "sessionId": 6,
+      "type": "block_broken",
+      "x": 22,
+      "y": -1,
+      "z": 10,
+      "timestamp": "2026-11-06T12:22:59.470Z"
+    },
+    {
+      "eventId": 29,
+      "sessionId": 6,
+      "type": "block_broken",
+      "x": 20,
+      "y": 0,
+      "z": 10,
+      "timestamp": "2026-11-06T12:22:59.588Z"
+    },
+    {
+      "eventId": 30,
+      "sessionId": 6,
+      "type": "block_broken",
+      "x": 21,
+      "y": -1,
+      "z": 10,
+      "timestamp": "2026-11-06T12:22:59.720Z"
+    },
+    {
+      "eventId": 31,
+      "sessionId": 6,
+      "type": "block_broken",
+      "x": 22,
+      "y": -2,
+      "z": 10,
+      "timestamp": "2026-11-06T12:22:59.841Z"
+    },
+    {
+      "eventId": 32,
+      "sessionId": 6,
+      "type": "block_broken",
+      "x": 22,
+      "y": -3,
+      "z": 10,
+      "timestamp": "2026-11-06T12:22:59.972Z"
+    },
+    {
+      "eventId": 33,
+      "sessionId": 6,
+      "type": "block_broken",
+      "x": 21,
+      "y": -2,
+      "z": 10,
+      "timestamp": "2026-11-06T12:23:00.098Z"
+    },
+    {
+      "eventId": 34,
+      "sessionId": 6,
+      "type": "block_broken",
+      "x": 20,
+      "y": -1,
+      "z": 10,
+      "timestamp": "2026-11-06T12:23:00.252Z"
+    },
+    {
+      "eventId": 35,
+      "sessionId": 6,
+      "type": "block_broken",
+      "x": 23,
+      "y": -3,
+      "z": 10,
+      "timestamp": "2026-11-06T12:23:00.390Z"
+    },
+    {
+      "eventId": 36,
+      "sessionId": 6,
+      "type": "block_broken",
+      "x": 23,
+      "y": -4,
+      "z": 10,
+      "timestamp": "2026-11-06T12:23:00.917Z"
+    },
+    {
+      "eventId": 37,
+      "sessionId": 6,
+      "type": "block_placed",
+      "x": 22,
+      "y": 1,
+      "z": 8,
+      "timestamp": "2026-11-06T12:23:02.299Z"
+    },
+    {
+      "eventId": 38,
+      "sessionId": 6,
+      "type": "block_placed",
+      "x": 21,
+      "y": 1,
+      "z": 8,
+      "timestamp": "2026-11-06T12:23:02.502Z"
+    },
+    {
+      "eventId": 39,
+      "sessionId": 6,
+      "type": "block_placed",
+      "x": 20,
+      "y": 1,
+      "z": 8,
+      "timestamp": "2026-11-06T12:23:02.647Z"
+    },
+    {
+      "eventId": 40,
+      "sessionId": 6,
+      "type": "block_placed",
+      "x": 20,
+      "y": 2,
+      "z": 8,
+      "timestamp": "2026-11-06T12:23:02.769Z"
+    },
+    {
+      "eventId": 41,
+      "sessionId": 6,
+      "type": "block_placed",
+      "x": 19,
+      "y": 1,
+      "z": 8,
+      "timestamp": "2026-11-06T12:23:02.903Z"
+    }
   ]
 }

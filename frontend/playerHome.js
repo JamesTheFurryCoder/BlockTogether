@@ -1,5 +1,60 @@
 import { Engine } from 'noa-engine'
 
+const API_BASE_URL = (
+  import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'
+).replace(/\/$/, '');
+
+let sessionId = null;
+
+async function recordBlockEvent(type, x, y, z) {
+  if (sessionId === null) return;
+
+  const response = await fetch(`${API_BASE_URL}/api/events`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      sessionId,
+      events: [{ type, x, y, z }],
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Could not record ${type}: ${response.status}`);
+  }
+}
+
+async function startSession() {
+  const response = await fetch(`${API_BASE_URL}/api/sessions`, {
+    method: 'POST',
+  });
+  if (!response.ok) throw new Error('Could not start session');
+
+  const session = await response.json();
+  sessionId = session.sessionId;
+}
+
+async function endSession() {
+  if (sessionId === null) return;
+
+  const response = await fetch(
+    `${API_BASE_URL}/api/sessions/${sessionId}`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+      keepalive: true,
+    }
+  );
+  if (!response.ok) throw new Error('Could not end session');
+
+  sessionId = null;
+  return response.json();
+}
+
+startSession().catch(error => {
+  console.error('Could not start session:', error);
+});
+
 // Keys are chunk coordinates (for example, "0,-1,2"); values are plain block arrays.
 const grid = new Map();
 const pendingSaves = new Map();
@@ -181,6 +236,7 @@ noa.inputs.down.on('fire', () => {
 
   noa.setBlock(0, [x, y, z])
   saveChunk(chunk);
+  recordBlockEvent('block_broken', x, y, z).catch(console.error);
 })
 
 noa.inputs.down.on('alt-fire', () => {
@@ -202,7 +258,16 @@ noa.inputs.down.on('alt-fire', () => {
   // addBlock checks entity collisions so we cannot build inside the player.
   if (noa.addBlock(GRASS, position) === GRASS) {
     saveChunk(chunk);
+
+    recordBlockEvent('block_placed', x, y, z).catch(console.error);
   }
 })
+
+
+window.addEventListener('pagehide', () => {
+  endSession().catch(error => {
+    console.error('Could not end session:', error);
+  });
+});
 
 export default noa
