@@ -270,4 +270,49 @@ window.addEventListener('pagehide', () => {
   });
 });
 
+// End the session before returning home.
+const exitButton = document.createElement('button');
+exitButton.textContent = 'Exit to Home';
+
+Object.assign(exitButton.style, {
+  position: 'fixed',
+  right: '20px',
+  bottom: '20px',
+  zIndex: '1000',
+  padding: '12px 20px',
+  background: '#284c32',
+  color: 'white',
+  border: '1px solid white',
+  borderRadius: '8px',
+  cursor: 'pointer',
+  fontSize: '16px'
+});
+
+document.body.appendChild(exitButton);
+
+exitButton.addEventListener('mousedown', event => {
+  event.stopPropagation();
+});
+
+exitButton.addEventListener('click', async event => {
+  event.stopPropagation();
+  exitButton.disabled = true;
+  exitButton.textContent = 'Ending session…';
+
+  try {
+    if (sessionId === null) {
+      throw new Error('No active session. Check the backend connection.');
+    }
+
+    await saveQueue;
+    await endSession();
+
+    window.location.href = '/';
+  } catch (error) {
+    console.error('Could not exit:', error);
+    exitButton.disabled = false;
+    exitButton.textContent = 'Retry Exit to Home';
+  }
+});
+
 export default noa
