@@ -26,8 +26,8 @@ function isStatsResponse(value) {
 }
 
 function showPlayerStats() {
-    reactRoot.render(<PlayerStats />)
-  }
+  reactRoot.render(<PlayerStats />)
+}
 
 function showLandingPage() {
   reactRoot.render(<LandingPage />)
@@ -87,7 +87,7 @@ function PlayerStats() {
 
   return (
     <PlayerStatsView
-     onHomePage={showLandingPage}
+      onHomePage={showLandingPage}
       stats={stats}
       error={error}
       loading={loading}
@@ -100,4 +100,9 @@ const root = document.getElementById('stats-root')
 if (!root) throw new Error('Could not find the player statistics mount point.')
 
 const reactRoot = createRoot(root)
-reactRoot.render(<Login showLandingPage={showLandingPage} />)
+
+if (sessionStorage.getItem('blocktogether:demoLoggedIn') === 'true') {
+  showLandingPage()
+} else {
+  showLoginPage()
+}
