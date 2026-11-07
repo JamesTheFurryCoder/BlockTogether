@@ -1,0 +1,11 @@
+{
+  "JohnDoe": {
+    "password": "password123"
+  },
+  "James": {
+    "password": "123"
+  },
+  "foobar": {
+    "password": "mybar123"
+  }
+}

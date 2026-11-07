@@ -65,6 +65,20 @@
       "startedAt": "2026-11-06T12:22:49.868Z",
       "endedAt": "2026-11-06T12:23:07.487Z",
       "durationMinutes": 0
+    },
+    {
+      "sessionId": 7,
+      "userId": 1,
+      "startedAt": "2026-11-07T04:02:01.030Z",
+      "endedAt": "2026-11-07T04:02:06.639Z",
+      "durationMinutes": 0
+    },
+    {
+      "sessionId": 8,
+      "userId": 1,
+      "startedAt": "2026-11-07T07:23:59.545Z",
+      "endedAt": "2026-11-07T07:24:32.038Z",
+      "durationMinutes": 1
     }
   ],
   "events": [

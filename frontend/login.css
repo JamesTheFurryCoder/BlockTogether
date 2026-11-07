@@ -32,6 +32,12 @@
 .login-card button:focus-visible { outline: 3px solid #769d4f; outline-offset: 5px; }
 .login-card button span { font-size: 23px; line-height: 1; }
 .login-footer { margin-top: 32px; color: #788475; font-size: 12px; text-align: center; }
+.login-register { margin-top: 36px; padding-top: 24px; border-top: 1px solid #cdd7c9; }
+.login-register h3 { margin: 0 0 24px; font-size: 20px; }
+.login-error, .login-message { font-size: 14px; line-height: 1.5; }
+.login-error { color: #a12c28; }
+.login-message { color: #294a30; }
+.login-card button:disabled { opacity: .65; cursor: wait; transform: none; }
 
 .login-world { position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; min-height: 620px; padding: 36px; border-radius: 24px; background-color: #d9e6bc; background-image: linear-gradient(#66834e12 1px, transparent 1px), linear-gradient(90deg, #66834e12 1px, transparent 1px), radial-gradient(ellipse at 50% 30%, #f3f8d9, transparent 70%); background-size: 44px 44px, 44px 44px, 100% 100%; }
 .login-world-tag { align-self: flex-start; border: 1px solid #63814640; border-radius: 30px; padding: 10px 14px; font-size: 9px; font-weight: 700; letter-spacing: 1px; z-index: 1; }

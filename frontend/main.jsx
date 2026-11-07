@@ -101,7 +101,8 @@ if (!root) throw new Error('Could not find the player statistics mount point.')
 
 const reactRoot = createRoot(root)
 
-if (sessionStorage.getItem('blocktogether:demoLoggedIn') === 'true') {
+if (sessionStorage.getItem('blocktogether:demoLoggedIn') === 'true'
+    && sessionStorage.getItem('blocktogether:username')) {
   showLandingPage()
 } else {
   showLoginPage()

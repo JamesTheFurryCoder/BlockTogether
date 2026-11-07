@@ -2,6 +2,7 @@ import React from 'react'
 import './LandingPage.css'
 
 export default function LandingPageView({ onViewStats }) {
+  const username = sessionStorage.getItem('blocktogether:username')
   return (
     <div className="landing-page">
       <header className="site-header">
@@ -26,7 +27,7 @@ export default function LandingPageView({ onViewStats }) {
                 <button className="avatar-edit" type="button" aria-label="Edit avatar" data-action="edit-avatar">Edit</button>
               </div>
               <div>
-                <h1 data-player-name="">Alex Johnson</h1>
+                <h1 data-player-name="">{username}</h1>
                 <p className="muted" data-player-handle="">@blockbuilder</p>
               </div>
             </div>

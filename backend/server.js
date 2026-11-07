@@ -7,6 +7,7 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3001;
 const DB_FILE = path.join(__dirname, 'data', 'db.json');
+const DBLOGIN_FILE = path.join(__dirname, 'data', 'logindata.json');
 const MAX_BLOCKS_PER_REQUEST = 1000;
 const EVENT_TYPES = ['position', 'block_placed', 'block_broken', 'entity_kill'];
 const BREAK_AFTER_MINUTES = 60; // suggest a break after this much playtime today
@@ -15,9 +16,59 @@ app.use(cors());
 app.use(express.json());
 
 const readDb = () => JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+const readLoginDb = () => JSON.parse(fs.readFileSync(DBLOGIN_FILE, 'utf8'));
 const writeDb = (db) => fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+const writeLoginDb = (db) => fs.writeFileSync(DBLOGIN_FILE, JSON.stringify(db, null, 2));
 const isInt = (n) => Number.isInteger(n);
 const isNum = (n) => typeof n === 'number' && Number.isFinite(n);
+
+app.post('/api/login', (req, res) => {
+  const { username, password } = req.body ?? {};
+
+  if (typeof username !== 'string' || !username.trim() ||
+      typeof password !== 'string' || !password) {
+    return res.status(400).json({ error: 'Username and password required' });
+  }
+
+  const loginDb = readLoginDb();
+  const retrievedUser = Object.hasOwn(loginDb, username)
+    ? loginDb[username]
+    : null;
+
+  if (!retrievedUser || retrievedUser.password !== password) {
+    return res.status(401).json({ error: 'Invalid username or password' });
+  }
+
+  return res.status(200).json({
+    message: 'Login successful',
+    user: { username }
+  });
+});
+
+app.post('/api/register', (req, res) => {
+  const { username, password } = req.body ?? {};
+
+  if (typeof username !== 'string' || !username.trim() ||
+      typeof password !== 'string' || !password) {
+    return res.status(400).json({ error: 'Username and password required' });
+  }
+
+  const loginDb = readLoginDb();
+
+  if (Object.hasOwn(loginDb, username)) {
+    return res.status(409).json({ error: 'User already exists' });
+  }
+
+  Object.defineProperty(loginDb, username, {
+    value: { password },
+    enumerable: true,
+    writable: true,
+    configurable: true
+  });
+  writeLoginDb(loginDb);
+
+  return res.status(201).json({ message: 'User registered successfully' });
+});
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
