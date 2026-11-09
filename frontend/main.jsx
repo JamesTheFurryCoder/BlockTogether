@@ -57,11 +57,15 @@ function PlayerStats() {
       setError('')
 
       try {
-        const response = await fetch(STATS_ENDPOINT, {
+        const username = sessionStorage.getItem('blocktogether:username')
+        if (!username) throw new Error('Please sign in to view your statistics.')
+        const response = await fetch(`${STATS_ENDPOINT}?${new URLSearchParams({ username })}`, {
           headers: { Accept: 'application/json' },
           cache: 'no-store',
         })
         if (!response.ok) {
+          const result = await response.json()
+          if (result.error) throw new Error(result.error)
           throw new Error(`The stats service returned HTTP ${response.status}.`)
         }
 

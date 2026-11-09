@@ -1,11 +1,14 @@
 {
-  "JohnDoe": {
-    "password": "password123"
-  },
   "James": {
     "password": "123"
   },
-  "foobar": {
-    "password": "mybar123"
+  "Frank": {
+    "password": "hello"
+  },
+  "Jason": {
+    "password": "test"
+  },
+  "admin": {
+    "password": "test"
   }
 }

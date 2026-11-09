@@ -9,7 +9,7 @@ async function submitCredentials(endpoint, username, password) {
     response = await fetch(`${API_BASE_URL}/api/${endpoint}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ username: username.trim(), password }),
     })
   } catch {
     throw new Error('Unable to reach the server. Please try again.')

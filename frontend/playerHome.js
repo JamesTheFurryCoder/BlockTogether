@@ -4,30 +4,41 @@ const API_BASE_URL = (
   import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'
 ).replace(/\/$/, '');
 
+// Capture the identity once so pending saves cannot switch users mid-session.
+const username = sessionStorage.getItem('blocktogether:username');
+if (!username) throw new Error('Please sign in before entering your home.');
 let sessionId = null;
 
+async function checkGameplayResponse(response, message) {
+  if (response.ok) return;
+  const result = await response.json().catch(() => ({}));
+  throw new Error(`${message}: ${result.error || `HTTP ${response.status}`}`);
+}
+
 async function recordBlockEvent(type, x, y, z) {
+  await sessionReady;
   if (sessionId === null) return;
 
   const response = await fetch(`${API_BASE_URL}/api/events`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
+      username,
       sessionId,
       events: [{ type, x, y, z }],
     }),
   });
 
-  if (!response.ok) {
-    throw new Error(`Could not record ${type}: ${response.status}`);
-  }
+  await checkGameplayResponse(response, `Could not record ${type}`);
 }
 
 async function startSession() {
   const response = await fetch(`${API_BASE_URL}/api/sessions`, {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username }),
   });
-  if (!response.ok) throw new Error('Could not start session');
+  await checkGameplayResponse(response, 'Could not start session');
 
   const session = await response.json();
   sessionId = session.sessionId;
@@ -41,24 +52,34 @@ async function endSession() {
     {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
+      body: JSON.stringify({ username }),
       keepalive: true,
     }
   );
-  if (!response.ok) throw new Error('Could not end session');
+  await checkGameplayResponse(response, 'Could not end session');
 
   sessionId = null;
   return response.json();
 }
 
-startSession().catch(error => {
+const sessionReady = startSession();
+sessionReady.catch(error => {
   console.error('Could not start session:', error);
 });
 
 // Keys are chunk coordinates (for example, "0,-1,2"); values are plain block arrays.
 const grid = new Map();
 const pendingSaves = new Map();
-const PENDING_SAVE_KEY = 'blocktogether:pending-chunks';
+const PENDING_SAVE_KEY = `blocktogether:pending-chunks:${username}`;
+const persistedBlocks = new Map();
+const CHUNK_SIZE = 24;
+function terrainBlock(y) {
+  return y > 0 || y < -4 ? 0 : y === 0 ? 1 : y >= -2 ? 2 : 3;
+}
+function generatedChunk(j) {
+  return Array.from({ length: CHUNK_SIZE ** 3 }, (_, index) =>
+    terrainBlock(j * CHUNK_SIZE + Math.floor(index / CHUNK_SIZE) % CHUNK_SIZE));
+}
 let saveQueue = Promise.resolve();
 
 function chunkKey(i, j, k) {
@@ -67,23 +88,24 @@ function chunkKey(i, j, k) {
 
 async function loadGrid() {
   try {
-    const response = await fetch('/api/player-save');
-    if (!response.ok) throw new Error('Could not load chunk data');
-    const chunks = await response.json();
-
-    // The JSON file stores chunks as chunks[i][j][k].
-    for (const [i, rows] of Object.entries(chunks)) {
-      for (const [j, columns] of Object.entries(rows)) {
-        for (const [k, blocks] of Object.entries(columns)) {
-          grid.set(chunkKey(i, j, k), blocks);
-        }
-      }
+    const response = await fetch(`${API_BASE_URL}/api/worlds/me/blocks?${new URLSearchParams({ username })}`);
+    await checkGameplayResponse(response, 'Could not load saved blocks');
+    const { blocks } = await response.json();
+    for (const block of blocks) {
+      const { x, y, z, blockId } = block;
+      persistedBlocks.set(`${x},${y},${z}`, block);
+      const [i, j, k] = [x, y, z].map(value => Math.floor(value / CHUNK_SIZE));
+      const key = chunkKey(i, j, k);
+      if (!grid.has(key)) grid.set(key, generatedChunk(j));
+      const index = (x - i * CHUNK_SIZE) * CHUNK_SIZE ** 2
+        + (y - j * CHUNK_SIZE) * CHUNK_SIZE + z - k * CHUNK_SIZE;
+      grid.get(key)[index] = blockId;
     }
   } catch (error) {
-    console.error('Could not load playerSaveData/world.json:', error);
+    console.error('Could not load SQLite world:', error);
   }
 
-  // A refresh can interrupt queued requests. Pending edits override older JSON data.
+  // A refresh can interrupt queued requests. Pending edits override older SQLite data.
   try {
     const pending = JSON.parse(localStorage.getItem(PENDING_SAVE_KEY) || '[]');
     for (const [key, blocks] of pending) {
@@ -114,12 +136,27 @@ function queueChunkSave(indexes, blocks) {
     // Only send the latest snapshot if several edits to this chunk are queued.
     if (pendingSaves.get(key) !== blocks) return;
 
-    const response = await fetch('/api/player-save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ indexes, blocks }),
-    });
-    if (!response.ok) throw new Error('Could not save chunk data');
+    const edits = [];
+    const [i, j, k] = indexes;
+    for (let index = 0; index < blocks.length; index++) {
+      const x = i * CHUNK_SIZE + Math.floor(index / CHUNK_SIZE ** 2);
+      const y = j * CHUNK_SIZE + Math.floor(index / CHUNK_SIZE) % CHUNK_SIZE;
+      const z = k * CHUNK_SIZE + index % CHUNK_SIZE;
+      const blockId = blocks[index];
+      if (blockId !== terrainBlock(y) || persistedBlocks.has(`${x},${y},${z}`)) {
+        edits.push({ x, y, z, blockId });
+      }
+    }
+    for (let offset = 0; offset < edits.length; offset += 1000) {
+      const batch = edits.slice(offset, offset + 1000);
+      const response = await fetch(`${API_BASE_URL}/api/worlds/me/blocks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, blocks: batch }),
+      });
+      await checkGameplayResponse(response, 'Could not save world blocks');
+      for (const block of batch) persistedBlocks.set(`${block.x},${block.y},${block.z}`, block);
+    }
 
     // An older response must not clear a newer edit's backup.
     if (pendingSaves.get(key) === blocks) {
@@ -127,7 +164,7 @@ function queueChunkSave(indexes, blocks) {
       storePendingSaves();
     }
   }).catch(error => {
-    console.error('Could not save playerSaveData/world.json:', error);
+    console.error('Could not save SQLite world:', error);
   });
 }
 

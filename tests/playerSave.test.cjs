@@ -1,7 +1,5 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const http = require('node:http');
-const os = require('node:os');
 const path = require('node:path');
 const { test } = require('node:test');
 const vm = require('node:vm');
@@ -10,9 +8,10 @@ const ndarray = require('ndarray');
 const root = path.resolve(__dirname, '..');
 const source = fs.readFileSync(path.join(root, 'frontend', 'playerHome.js'), 'utf8')
   .replace("import { Engine } from 'noa-engine'", '')
+  .replace('import.meta.env.VITE_API_BASE_URL', '""')
   .replace('export default noa',
     'globalThis.game = {noa, grid, gridReady, waitForSaves: () => saveQueue}');
-const backupKey = 'blocktogether:pending-chunks';
+const backupKey = 'blocktogether:pending-chunks:James';
 
 function deferred() {
   let resolve;
@@ -21,33 +20,36 @@ function deferred() {
 }
 
 async function setup(t, initialSave = {}) {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'blocktogether-save-test-'));
-  const saveDirectory = path.join(directory, 'playerSaveData');
-  fs.mkdirSync(saveDirectory);
-  const saveFile = path.join(saveDirectory, 'world.json');
-  fs.writeFileSync(saveFile, JSON.stringify(initialSave));
-  const config = { require, __dirname: directory, module: { exports: {} }, console };
-  vm.runInNewContext(fs.readFileSync(path.join(root, 'vite.config.js'), 'utf8'), config);
-  let middleware;
-  config.module.exports.plugins[0].configureServer({
-    middlewares: { use(handler) { middleware = handler; } },
-  });
-  const server = http.createServer((req, res) => middleware(req, res, () => {
-    res.statusCode = 404;
-    res.end();
-  }));
-  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  t.after(async () => {
-    await new Promise(resolve => server.close(resolve));
-    fs.rmSync(saveFile, { force: true });
-    fs.rmSync(`${saveFile}.tmp`, { force: true });
-    fs.rmdirSync(saveDirectory);
-    fs.rmdirSync(directory);
-  });
+  const saved = structuredClone(initialSave);
   const storage = new Map();
   return {
-    readSave: () => JSON.parse(fs.readFileSync(saveFile, 'utf8')),
-    fetch: (url, options) => fetch(`http://127.0.0.1:${server.address().port}${url}`, options),
+    readSave: () => structuredClone(saved),
+    fetch: async (url, options) => {
+      const target = new URL(url);
+      assert.equal(options ? JSON.parse(options.body).username : target.searchParams.get('username'), 'James');
+      if (options) assert.equal(target.searchParams.has('username'), false);
+      assert.equal(target.pathname, '/api/worlds/me/blocks');
+      if (options) {
+        for (const { x, y, z, blockId } of JSON.parse(options.body).blocks) {
+          const [i, j, k] = [x, y, z].map(n => Math.floor(n / 24));
+          saved[i] ??= {}; saved[i][j] ??= {};
+          saved[i][j][k] ??= Array.from({ length: 24 ** 3 }, (_, index) => {
+            const height = j * 24 + Math.floor(index / 24) % 24;
+            return height > 0 || height < -4 ? 0 : height === 0 ? 1 : height >= -2 ? 2 : 3;
+          });
+          saved[i][j][k][(x - i * 24) * 24 ** 2 + (y - j * 24) * 24 + z - k * 24] = blockId;
+        }
+        return { ok: true };
+      }
+      const blocks = [];
+      for (const [i, rows] of Object.entries(saved)) for (const [j, columns] of Object.entries(rows)) {
+        for (const [k, values] of Object.entries(columns)) values.forEach((blockId, index) => {
+          blocks.push({ x: +i * 24 + Math.floor(index / 24 ** 2),
+            y: +j * 24 + Math.floor(index / 24) % 24, z: +k * 24 + index % 24, blockId });
+        });
+      }
+      return { ok: true, json: async () => ({ blocks }) };
+    },
     localStorage: {
       getItem: key => storage.get(key) ?? null,
       setItem: (key, value) => storage.set(key, value),
@@ -89,7 +91,17 @@ function startGame(store, fetchImpl = store.fetch) {
     }
   }
   const context = {
-    Engine, fetch: fetchImpl, localStorage: store.localStorage,
+    Engine, fetch: async (url, options) => {
+      const target = new URL(url);
+      assert.equal(options ? JSON.parse(options.body).username : target.searchParams.get('username'), 'James');
+      if (options) assert.equal(target.searchParams.has('username'), false);
+      if (target.pathname === '/api/sessions') return { ok: true, json: async () => ({ sessionId: 1 }) };
+      if (target.pathname.startsWith('/api/sessions/') || target.pathname === '/api/events') return { ok: true, json: async () => ({}) };
+      return fetchImpl(url, options);
+    }, localStorage: store.localStorage,
+    URLSearchParams, sessionStorage: { getItem: () => 'James' },
+    window: { addEventListener() {}, location: {} },
+    document: { createElement: () => ({ style: {}, addEventListener() {} }), body: { appendChild() {} } },
     console: { log() {}, error() {} },
   };
   vm.runInNewContext(source, context);
@@ -114,7 +126,7 @@ function startGame(store, fetchImpl = store.fetch) {
   });
 }
 
-test('refresh recovers all queued chunk edits before JSON writes finish', async t => {
+test('refresh recovers all queued chunk edits before SQLite writes finish', async t => {
   const untouched = Array(24 ** 3).fill(3);
   const oldGround = Array(24 ** 3).fill(0);
   for (let x = 0; x < 24; x++) {
@@ -151,7 +163,7 @@ test('refresh recovers all queued chunk edits before JSON writes finish', async 
   assert.equal(store.localStorage.getItem(backupKey), null);
   assert.deepEqual(store.readSave()['8']['0']['0'], untouched);
 
-  // With no browser backup left, another reload must restore from JSON alone.
+  // With no browser backup left, another reload must restore from SQLite alone.
   const fromDisk = startGame(store);
   const diskChunk = await fromDisk.load(0, 0, 0);
   assert.deepEqual(Array.from(diskChunk.voxels.data), Array.from(restored.voxels.data));

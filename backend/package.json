@@ -4,9 +4,10 @@
   "description": "Express backend for BlockTogether (TCSS 460 Phase II)",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node --watch server.js"
   },
   "dependencies": {
+    "better-sqlite3": "^13.0.3",
     "cors": "^2.8.5",
     "express": "^4.19.2"
   }
