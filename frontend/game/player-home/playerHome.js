@@ -73,8 +73,13 @@ const pendingSaves = new Map();
 const PENDING_SAVE_KEY = `blocktogether:pending-chunks:${username}`;
 const persistedBlocks = new Map();
 const CHUNK_SIZE = 24;
+const GROUND_LEVEL = 0;
+const UNDERGROUND_DEPTH = 4;
+const TERRAIN_BLOCKS = { surface: 8, middle: 18, bottom: 16 };
 function terrainBlock(y) {
-  return y > 0 || y < -4 ? 0 : y === 0 ? 1 : y >= -2 ? 2 : 3;
+  if (y > GROUND_LEVEL || y < GROUND_LEVEL - UNDERGROUND_DEPTH) return 0;
+  if (y === GROUND_LEVEL) return TERRAIN_BLOCKS.surface;
+  return y >= GROUND_LEVEL - 2 ? TERRAIN_BLOCKS.middle : TERRAIN_BLOCKS.bottom;
 }
 function generatedChunk(j) {
   return Array.from({ length: CHUNK_SIZE ** 3 }, (_, index) =>
@@ -92,7 +97,8 @@ async function loadGrid() {
     await checkGameplayResponse(response, 'Could not load saved blocks');
     const { blocks } = await response.json();
     for (const block of blocks) {
-      const { x, y, z, blockId } = block;
+      const { x, y, z } = block;
+      const blockId = replaceLegacyBlockId(block.blockId);
       persistedBlocks.set(`${x},${y},${z}`, block);
       const [i, j, k] = [x, y, z].map(value => Math.floor(value / CHUNK_SIZE));
       const key = chunkKey(i, j, k);
@@ -108,7 +114,8 @@ async function loadGrid() {
   // A refresh can interrupt queued requests. Pending edits override older SQLite data.
   try {
     const pending = JSON.parse(localStorage.getItem(PENDING_SAVE_KEY) || '[]');
-    for (const [key, blocks] of pending) {
+    for (const [key, savedBlocks] of pending) {
+      const blocks = savedBlocks.map(replaceLegacyBlockId);
       pendingSaves.set(key, blocks);
       grid.set(key, blocks);
       queueChunkSave(key.split(',').map(Number), blocks);
@@ -180,13 +187,43 @@ function saveChunk(chunk) {
   queueChunkSave(indexes, blocks);
 }
 
-const gridReady = loadGrid();
+// Keep palette IDs stable: saved worlds store these numbers.
+const blockSets = [
+  [
+    { id: 4, name: 'Red', color: '#e53935' },
+    { id: 5, name: 'Orange', color: '#fb8c00' },
+    { id: 6, name: 'Yellow', color: '#fdd835' },
+    { id: 7, name: 'Lime', color: '#a3d93b' },
+    { id: 8, name: 'Green', color: '#43a047' },
+    { id: 9, name: 'Cyan', color: '#26c6da' },
+    { id: 10, name: 'Sky Blue', color: '#64b5f6' },
+    { id: 11, name: 'Blue', color: '#3949db' },
+    { id: 12, name: 'Purple', color: '#8e24aa' },
+    { id: 13, name: 'Pink', color: '#f48fb1' },
+  ],
+  [
+    { id: 14, name: 'White', color: '#f5f5f5' },
+    { id: 15, name: 'Light Gray', color: '#bdbdbd' },
+    { id: 16, name: 'Gray', color: '#616161' },
+    { id: 17, name: 'Black', color: '#212121' },
+    { id: 18, name: 'Brown', color: '#795548' },
+    { id: 19, name: 'Tan', color: '#d7b58c' },
+    { id: 20, name: 'Navy', color: '#1a2c64' },
+    { id: 21, name: 'Teal', color: '#00897b' },
+    { id: 22, name: 'Magenta', color: '#d81b91' },
+    { id: 23, name: 'Glass', color: '#c4e8f5', glass: true },
+  ],
+]
+const placeableBlocks = blockSets.flat()
+// Load old grass, dirt, and stone saves as their closest palette colors.
+function replaceLegacyBlockId(id) {
+  return ({ 1: TERRAIN_BLOCKS.surface, 2: TERRAIN_BLOCKS.middle, 3: TERRAIN_BLOCKS.bottom })[id] ?? id
+}
+const slotKeys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0']
+let activeSet = 0
+let selectedSlot = 0
 
-const GRASS = 1
-const DIRT = 2
-const STONE = 3
-const GROUND_LEVEL = 0
-const UNDERGROUND_DEPTH = 4
+const gridReady = loadGrid();
 
 const noa = new Engine({
   debug: false,
@@ -195,25 +232,68 @@ const noa = new Engine({
   chunkRemoveDistance: [2, 2],
 })
 
-noa.registry.registerMaterial('grass', { color: [0.35, 0.68, 0.28] })
-noa.registry.registerMaterial('dirt', { color: [0.48, 0.31, 0.18] })
-noa.registry.registerMaterial('stone', { color: [0.52, 0.54, 0.56] })
+for (const block of placeableBlocks) {
+  const material = `palette-${block.id}`
+  const color = block.color.match(/[0-9a-f]{2}/gi).map(hex => parseInt(hex, 16) / 255)
+  // noa-engine reads a fourth color component as material transparency.
+  if (block.glass) color.push(0.3)
+  noa.registry.registerMaterial(material, { color })
+  noa.registry.registerBlock(block.id, {
+    material,
+    solid: true,
+    opaque: !block.glass,
+  })
+}
 
-noa.registry.registerBlock(GRASS, {
-  material: 'grass',
-  solid: true,
-  opaque: true,
+const palette = document.createElement('div')
+palette.className = 'block-palette'
+const paletteLabel = document.createElement('div')
+paletteLabel.className = 'palette-label'
+paletteLabel.setAttribute('role', 'status')
+palette.appendChild(paletteLabel)
+const paletteSlots = document.createElement('div')
+paletteSlots.className = 'palette-slots'
+palette.appendChild(paletteSlots)
+const swatches = slotKeys.map(key => {
+  const swatch = document.createElement('div')
+  swatch.className = 'palette-slot'
+  const keyLabel = document.createElement('span')
+  keyLabel.textContent = key
+  swatch.appendChild(keyLabel)
+  paletteSlots.appendChild(swatch)
+  return swatch
 })
-noa.registry.registerBlock(DIRT, {
-  material: 'dirt',
-  solid: true,
-  opaque: true,
-})
-noa.registry.registerBlock(STONE, {
-  material: 'stone',
-  solid: true,
-  opaque: true,
-})
+document.body.appendChild(palette)
+
+function updatePalette() {
+  const blocks = blockSets[activeSet]
+  paletteLabel.textContent = `Set ${activeSet + 1}/2 · ${blocks[selectedSlot].name} · Tab: switch set`
+  swatches.forEach((swatch, index) => {
+    const block = blocks[index]
+    swatch.className = `palette-slot${index === selectedSlot ? ' selected' : ''}${block.glass ? ' glass' : ''}`
+    swatch.style.backgroundColor = block.glass ? 'rgb(196 232 245 / 30%)' : block.color
+    swatch.title = `${slotKeys[index]}: ${block.name}`
+    swatch.setAttribute('aria-label', swatch.title)
+  })
+}
+
+function keyboardEvent(event) {
+  if (!noa.container.hasPointerLock || event.ctrlKey || event.altKey || event.metaKey) return
+  const slot = slotKeys.indexOf(event.key)
+  if (event.key !== 'Tab' && slot === -1) return
+  // Keep Tab in the game while playing; allow normal focus navigation after Esc.
+  event.preventDefault()
+  if (event.repeat) return
+  if (event.key === 'Tab') {
+    activeSet = (activeSet + 1) % blockSets.length
+  } else {
+    selectedSlot = slot
+  }
+  updatePalette()
+}
+
+document.addEventListener('keydown', keyboardEvent)
+updatePalette()
 
 noa.world.on('worldDataNeeded', async (requestID, data, chunkX, chunkY, chunkZ) => {
   await gridReady;
@@ -234,14 +314,8 @@ noa.world.on('worldDataNeeded', async (requestID, data, chunkX, chunkY, chunkZ) 
         continue
       }
 
-      const blockID = worldY === GROUND_LEVEL
-        ? GRASS
-        : worldY >= GROUND_LEVEL - 2
-          ? DIRT
-          : STONE
-
       for (let z = 0; z < sizeZ; z += 1) {
-        data.set(x, y, z, blockID)
+        data.set(x, y, z, terrainBlock(worldY))
       }
     }
   }
@@ -293,7 +367,8 @@ noa.inputs.down.on('alt-fire', () => {
   if (noa.getBlock(position) !== 0) return
 
   // addBlock checks entity collisions so we cannot build inside the player.
-  if (noa.addBlock(GRASS, position) === GRASS) {
+  const selectedBlock = blockSets[activeSet][selectedSlot].id
+  if (noa.addBlock(selectedBlock, position) === selectedBlock) {
     saveChunk(chunk);
 
     recordBlockEvent('block_placed', x, y, z).catch(console.error);
