@@ -2,6 +2,8 @@ import { CreateBox } from '@babylonjs/core/Meshes/Builders/boxBuilder'
 
 // One listener per engine, even when a game spawns many entities.
 const controllers = new WeakMap()
+// Resolve noa collision IDs back to Entity instances, separately for each engine.
+const instances = new WeakMap()
 
 /**
  * A model, physics body, and movement controller backed by noa's ECS.
@@ -19,6 +21,7 @@ export class Entity {
   /**
    * @param {import('noa-engine').Engine} noa
    * @param {object} [options]
+   * @param {string} [options.entityName] Entity and Babylon mesh name. Defaults to the mesh name.
    * @param {number[]} [options.position=[0,2,0]] Bottom-center position.
    * @param {number} [options.width=1] Collider size on both X and Z.
    * @param {number} [options.height=1] Collider height.
@@ -40,7 +43,7 @@ export class Entity {
    * @param {number} [options.collideMask=1] Entity categories to notify about.
    */
   constructor(noa, {
-    position = [0, 2, 0], width = 1, height = 1, model,
+    position = [0, 2, 0], width = 1, height = 1, model, entityName,
     meshOffset = [0, height / 2, 0], color = [0.8, 0.3, 0.25],
     physics = true, movement = {}, mass = 1, gravityMultiplier = 1,
     autoStep = false, restitution = 0, collideBits = 1, collideMask = 1,
@@ -51,6 +54,7 @@ export class Entity {
     positive(width, 'width')
     positive(height, 'height')
     positive(mass, 'mass')
+    if (entityName !== undefined) validateName(entityName)
 
     this.noa = noa
     this.destroyed = false
@@ -70,6 +74,7 @@ export class Entity {
     if (!this.mesh || typeof this.mesh.dispose !== 'function' || !this.mesh.position) {
       throw new TypeError('model must be a Babylon mesh or a factory returning one synchronously.')
     }
+    if (entityName !== undefined) this.entityName = entityName
 
     this.id = noa.entities.add([...position], width, height, this.mesh, [...meshOffset], physics)
     const names = noa.entities.names
@@ -94,6 +99,24 @@ export class Entity {
         }
       },
     })
+    if (!instances.has(noa)) instances.set(noa, new Map())
+    instances.get(noa).set(this.id, this)
+  }
+
+  /** Resolve an onCollision ID; raw noa entities return undefined. */
+  static fromId(noa, id) {
+    return instances.get(noa)?.get(id)
+  }
+
+  /** Shares Babylon's mesh name; assigning here also renames the mesh. */
+  get entityName() {
+    return this.mesh.name
+  }
+
+  set entityName(name) {
+    this._assertAlive()
+    validateName(name)
+    this.mesh.name = name
   }
 
   /** A copy: use setPosition() to move instead of editing this array. */
@@ -317,6 +340,7 @@ export class Entity {
     this._detachController()
     this._collisionHandlers.clear()
     this._terrainHandlers.clear()
+    instances.get(this.noa)?.delete(this.id)
     this.noa.entities.deleteEntity(this.id) // noa disposes the mesh and body.
     this._material?.dispose() // Only the default material is owned here.
     this.destroyed = true
@@ -371,6 +395,12 @@ export class Entity {
 
 function finite(value, name) {
   if (!Number.isFinite(value)) throw new TypeError(`${name} must be a finite number.`)
+}
+
+function validateName(name) {
+  if (typeof name !== 'string' || name.trim().length === 0) {
+    throw new TypeError('entityName must be a nonempty string.')
+  }
 }
 
 function nonnegative(value, name) {

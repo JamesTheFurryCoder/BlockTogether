@@ -64,7 +64,7 @@ const noa = new Engine({
 const move = noa.entities.getMovement(noa.playerEntity)
 
 // Adjust the jump strength (default is typically around 10)
-move.jumpImpulse = 6
+move.jumpImpulse = 5
 
 for (const [name, color] of Object.entries({
   wall: [0.35, 0.4, 0.45],
@@ -125,6 +125,65 @@ Object.assign(guide.style, {
   pointerEvents: 'none',
 })
 document.body.appendChild(guide)
+
+let triggered = false;
+const winState = document.createElement("div");
+winState.setAttribute('role', 'status');
+winState.textContent = 'Congratulations, you won the game!';
+Object.assign(winState.style, {
+  position: 'fixed',
+  top: '50%',
+  left: '50%',
+  transform: 'translate(-50%, -50%)',
+  zIndex: '1001',
+  boxSizing: 'border-box',
+  width: 'min(400px, calc(100% - 32px))',
+  padding: '24px',
+  background: '#17251c',
+  color: 'white',
+  border: '1px solid white',
+  borderRadius: '12px',
+  boxShadow: '0 8px 32px rgb(0 0 0 / 50%)',
+  font: '20px/1.5 "Segoe UI", sans-serif',
+  textAlign: 'center',
+});
+
+const restartButton = document.createElement('button');
+restartButton.type = 'button';
+restartButton.textContent = 'Play again';
+Object.assign(restartButton.style, {
+  display: 'block',
+  margin: '16px auto 0',
+  padding: '10px 20px',
+  background: '#284c32',
+  color: 'white',
+  border: '1px solid white',
+  borderRadius: '8px',
+  cursor: 'pointer',
+  font: 'inherit',
+});
+restartButton.addEventListener('click', event => {
+  event.stopPropagation();
+  window.location.reload();
+});
+winState.appendChild(restartButton);
+winState.addEventListener('mousedown', event => event.stopPropagation());
+
+noa.on('tick', () => {
+    if (triggered) return;
+
+    const playerPosition = noa.entities.getPosition(noa.playerEntity);
+    const column = Math.floor(playerPosition[0] / CELL_SIZE);
+    const row = Math.floor(playerPosition[2] / CELL_SIZE);
+    const mazePositionId = maze[row]?.[column];
+    if (mazePositionId === 3) {
+      triggered = true;
+      document.body.appendChild(winState);
+      if (document.pointerLockElement) document.exitPointerLock();
+      restartButton.focus();
+      console.log("you won");
+    }
+});
 
 const exitButton = document.createElement('button')
 exitButton.type = 'button'
