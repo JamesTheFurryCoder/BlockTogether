@@ -136,10 +136,11 @@ noa.world.on('worldDataNeeded', (requestID, data, chunkX, chunkY, chunkZ) => {
 })
 
 function enemyHit(otherId, self) {
-  const other = Entity.fromId(noa, otherId)
+  const other = otherId === player.id ? player : Entity.fromId(noa, otherId)
   if (gameOver || self.destroyed || other?.entityName !== 'player-bullet') {
     return
   }
+  //console.log(other?.entityName)
   self.health = Math.max(0, self.health - ARENA.bulletDamage)
   other.destroy() // One bullet can only deal damage once.
   if (self.health === 0) self.destroy()
@@ -148,9 +149,7 @@ function enemyHit(otherId, self) {
 function bulletHit(otherId, self) {
   if (gameOver || self.destroyed) return
   const other = otherId === player.id ? player : Entity.fromId(noa, otherId)
-  if (self.entityName === 'player-bullet' && other instanceof enemy) {
-    enemyHit(self.id, other)
-  } else if (self.entityName === 'enemy-bullet' && other === player) {
+  if (self.entityName === 'enemy-bullet' && other === player) {
     playerHealth = Math.max(0, playerHealth - ARENA.bulletDamage)
     self.destroy()
     if (playerHealth === 0) {
@@ -175,6 +174,17 @@ document.addEventListener('keydown', event => {
   }
 })
 
+function checkIfOnlyCollidingPlayer(otherId, self) {
+  if (gameOver || self.destroyed) return
+  const other = otherId === player.id ? player : Entity.fromId(noa, otherId)
+  // Both exclusions must hold; using || here would also destroy friendly shots.
+  if (other?.entityName !== 'player-bullet' && other?.entityName !== 'player') {
+    // Either side's callback can run first. Deal damage before removing the shot.
+    if (other instanceof enemy) enemyHit(self.id, other)
+    self.destroy()
+  }
+}
+
 function randomBetween(min, max) {
   return min + Math.random() * (max - min)
 }
@@ -183,12 +193,13 @@ document.addEventListener('mousedown', event => {
   if (event.button !== 2) return
   event.preventDefault()
   if (gameOver) return
-  spawnBullet(
+  const bullet = spawnBullet(
     noa.camera.getTargetPosition(), // Player's eye position in world coordinates.
     noa.camera.getDirection(),
     PLAYER_BULLET_SPEED,
     'player-bullet',
   )
+  bullet.onCollision(checkIfOnlyCollidingPlayer)
 })
 
 function arenaPosition(x, z) {
@@ -211,7 +222,8 @@ function spawnEnemy(playerPosition) {
     if (Math.hypot(position[0] - playerPosition[0], position[2] - playerPosition[2]) < 10) continue
     if (noa.getBlock(Math.floor(position[0]), 0, Math.floor(position[2])) !== 1) continue
     if ([...enemies.keys()].some(target => !target.destroyed && target.distanceTo(position) < 2)) continue
-    const target = new enemy(noa, {
+    // Reuse the original example enemy setup for every enemy spawned by a wave.
+    const exampleEntity = new enemy(noa, {
       entityName: 'enemy',
       position,
       health: ARENA.enemyHealth,
@@ -220,7 +232,12 @@ function spawnEnemy(playerPosition) {
       color: [0.9, 0.35, 0.2],
       movement: { maxSpeed: ARENA.enemySpeed },
     })
-    enemies.set(target, {
+    exampleEntity.rigMovement(self => {
+      self.lookAt(noa.playerEntity)
+    })
+    exampleEntity.onCollision(enemyHit)
+
+    enemies.set(exampleEntity, {
       decisionIn: 0,
       shootIn: randomBetween(1000, 2500),
       chasePlayer: false,
@@ -321,7 +338,6 @@ noa.on('tick', dt => {
       ai.decisionIn = randomBetween(1000, 3000)
     }
     target.moveToward(ai.chasePlayer ? playerPosition : ai.destination, ai.chasePlayer ? 8 : 0.5)
-    target.lookAt(playerPosition)
     if (ai.shootIn <= 0) {
       shootAtPlayer(target, playerEyes)
       ai.shootIn = randomBetween(1400, 2400)

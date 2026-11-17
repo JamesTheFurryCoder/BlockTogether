@@ -249,6 +249,49 @@ test('arena hits consume bullets once, reduce health, and kill enemies at zero',
   assert.equal(game.playerHealth, 100)
 })
 
+test('restored right-click bullet filter ignores the player and other player bullets', t => {
+  const { noa, game, spawnBullet, events } = arena(t)
+  events.get('mousedown')({ button: 2, preventDefault() {} })
+  const bullet = [...game.bullets.keys()].find(shot => shot.entityName === 'player-bullet')
+  const friendly = spawnBullet(bullet.position, [1, 0, 0], 0, 'player-bullet')
+  noa.entities.tick(0)
+  assert.equal(bullet.destroyed, false)
+  assert.equal(friendly.destroyed, false)
+  assert.equal(game.playerHealth, 100)
+  const raw = noa.entities.add(bullet.position, 1, 1)
+  noa.entities.addComponent(raw, noa.entities.names.collideEntities)
+  noa.entities.tick(0)
+  assert.equal(bullet.destroyed, true, 'other entities consume the player shot')
+  noa.entities.deleteEntity(raw)
+})
+
+test('restored enemy and player bullet callbacks deal damage once in either creation order', t => {
+  for (const bulletFirst of [true, false]) {
+    const { noa, game, events, tick } = arena(t)
+    const fire = () => {
+      events.get('mousedown')({ button: 2, preventDefault() {} })
+      const bullet = [...game.bullets.keys()].find(shot => shot.entityName === 'player-bullet')
+      bullet.setPosition([50, 10, 50]).setVelocity([0, 0, 0])
+      return bullet
+    }
+    let bullet = bulletFirst ? fire() : null
+    tick(91)
+    if (!bulletFirst) bullet = fire()
+    const target = game.enemies.keys().next().value
+    bullet.setPosition(target.position)
+    noa.entities.tick(0)
+    assert.equal(target.health, 90)
+    assert.equal(bullet.destroyed, true)
+    noa.entities.tick(0)
+    assert.equal(target.health, 90, 'overlapping callbacks must not double-count a hit')
+    // The backup's look-at controller is attached to the actual wave enemy.
+    noa.emit('tick', 16)
+    const [px, , pz] = noa.entities.getPosition(noa.playerEntity)
+    const [x, , z] = target.position
+    assert.equal(target.mesh.rotation.y, Math.atan2(px - x, pz - z))
+  }
+})
+
 test('arena repeatedly recovers falling enemies while their ground chunk is unloaded', t => {
   const { noa, game, tick } = arena(t)
   tick(91)
