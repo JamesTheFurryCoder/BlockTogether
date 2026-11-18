@@ -9,7 +9,8 @@ module.exports = {
       input: {
         main: path.resolve(__dirname, 'index.html'),
         playerhome: path.resolve(__dirname, 'game/player-home/playerhome.html'),
-        mazegame: path.resolve(__dirname, 'game/player-home/mazegame.html'),
+        mazegame: path.resolve(__dirname, 'game/mazegame.html'),
+        arenashooter: path.resolve(__dirname, 'game/arenashooter.html'),
       },
     },
   },
