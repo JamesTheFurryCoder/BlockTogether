@@ -1,0 +1,108 @@
+html,
+body,
+#game {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+  background: #17251c;
+  font: 14px/1.5 "Segoe UI", sans-serif;
+}
+
+#game {
+  position: relative;
+}
+
+#game canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  outline: none;
+}
+
+.game-help {
+  position: fixed;
+  z-index: 1;
+  top: 16px;
+  left: 16px;
+  padding: 10px 14px;
+  border: 1px solid rgb(255 255 255 / 20%);
+  border-radius: 8px;
+  background: rgb(23 37 28 / 85%);
+  color: #fff;
+  pointer-events: none;
+}
+
+.game-help strong {
+  display: block;
+  margin-bottom: 2px;
+}
+
+.crosshair {
+  position: fixed;
+  z-index: 1;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #fff;
+  font: 24px/1 monospace;
+  text-shadow: 0 1px 3px #000;
+  pointer-events: none;
+}
+
+.block-palette {
+  position: fixed;
+  z-index: 1;
+  bottom: 84px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(600px, calc(100% - 32px));
+  box-sizing: border-box;
+  padding: 10px;
+  border: 1px solid rgb(255 255 255 / 25%);
+  border-radius: 10px;
+  background: rgb(23 37 28 / 85%);
+  color: #fff;
+  pointer-events: none;
+}
+
+.palette-label {
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.palette-slots {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.palette-slot {
+  display: flex;
+  align-items: end;
+  justify-content: center;
+  height: 44px;
+  box-sizing: border-box;
+  border: 2px solid rgb(255 255 255 / 25%);
+  border-radius: 4px;
+}
+
+.palette-slot.selected {
+  border-color: #fff;
+  outline: 2px solid #fff;
+  outline-offset: 1px;
+}
+
+.palette-slot.glass {
+  background-image: linear-gradient(135deg, transparent 40%, rgb(255 255 255 / 60%) 42%, transparent 48%);
+}
+
+.palette-slot span {
+  padding: 0 4px;
+  border-radius: 3px;
+  background: rgb(0 0 0 / 65%);
+  font-weight: 700;
+}

@@ -1,0 +1,14 @@
+{
+  "James": {
+    "password": "123"
+  },
+  "Frank": {
+    "password": "hello"
+  },
+  "Jason": {
+    "password": "test"
+  },
+  "admin": {
+    "password": "test"
+  }
+}

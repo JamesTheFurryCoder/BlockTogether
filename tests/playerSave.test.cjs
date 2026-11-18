@@ -1,18 +1,17 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const http = require('node:http');
-const os = require('node:os');
 const path = require('node:path');
 const { test } = require('node:test');
 const vm = require('node:vm');
 const ndarray = require('ndarray');
 
 const root = path.resolve(__dirname, '..');
-const source = fs.readFileSync(path.join(root, 'frontend', 'playerHome.js'), 'utf8')
+const source = fs.readFileSync(path.join(root, 'frontend', 'game', 'player-home', 'playerHome.js'), 'utf8')
   .replace("import { Engine } from 'noa-engine'", '')
+  .replace('import.meta.env.VITE_API_BASE_URL', '""')
   .replace('export default noa',
-    'globalThis.game = {noa, grid, gridReady, waitForSaves: () => saveQueue}');
-const backupKey = 'blocktogether:pending-chunks';
+    'globalThis.game = {noa, grid, gridReady, generatedChunk, waitForSaves: () => saveQueue}');
+const backupKey = 'blocktogether:pending-chunks:James';
 
 function deferred() {
   let resolve;
@@ -21,33 +20,35 @@ function deferred() {
 }
 
 async function setup(t, initialSave = {}) {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'blocktogether-save-test-'));
-  const saveDirectory = path.join(directory, 'playerSaveData');
-  fs.mkdirSync(saveDirectory);
-  const saveFile = path.join(saveDirectory, 'world.json');
-  fs.writeFileSync(saveFile, JSON.stringify(initialSave));
-  const config = { require, __dirname: directory, module: { exports: {} }, console };
-  vm.runInNewContext(fs.readFileSync(path.join(root, 'vite.config.js'), 'utf8'), config);
-  let middleware;
-  config.module.exports.plugins[0].configureServer({
-    middlewares: { use(handler) { middleware = handler; } },
-  });
-  const server = http.createServer((req, res) => middleware(req, res, () => {
-    res.statusCode = 404;
-    res.end();
-  }));
-  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  t.after(async () => {
-    await new Promise(resolve => server.close(resolve));
-    fs.rmSync(saveFile, { force: true });
-    fs.rmSync(`${saveFile}.tmp`, { force: true });
-    fs.rmdirSync(saveDirectory);
-    fs.rmdirSync(directory);
-  });
+  const saved = structuredClone(initialSave);
   const storage = new Map();
+  let generateChunk;
   return {
-    readSave: () => JSON.parse(fs.readFileSync(saveFile, 'utf8')),
-    fetch: (url, options) => fetch(`http://127.0.0.1:${server.address().port}${url}`, options),
+    useGenerator: generator => { generateChunk = generator; },
+    readSave: () => structuredClone(saved),
+    fetch: async (url, options) => {
+      const target = new URL(url);
+      assert.equal(options ? JSON.parse(options.body).username : target.searchParams.get('username'), 'James');
+      if (options) assert.equal(target.searchParams.has('username'), false);
+      assert.equal(target.pathname, '/api/worlds/me/blocks');
+      if (options) {
+        for (const { x, y, z, blockId } of JSON.parse(options.body).blocks) {
+          const [i, j, k] = [x, y, z].map(n => Math.floor(n / 24));
+          saved[i] ??= {}; saved[i][j] ??= {};
+          saved[i][j][k] ??= Array.from(generateChunk(j));
+          saved[i][j][k][(x - i * 24) * 24 ** 2 + (y - j * 24) * 24 + z - k * 24] = blockId;
+        }
+        return { ok: true };
+      }
+      const blocks = [];
+      for (const [i, rows] of Object.entries(saved)) for (const [j, columns] of Object.entries(rows)) {
+        for (const [k, values] of Object.entries(columns)) values.forEach((blockId, index) => {
+          blocks.push({ x: +i * 24 + Math.floor(index / 24 ** 2),
+            y: +j * 24 + Math.floor(index / 24) % 24, z: +k * 24 + index % 24, blockId });
+        });
+      }
+      return { ok: true, json: async () => ({ blocks }) };
+    },
     localStorage: {
       getItem: key => storage.get(key) ?? null,
       setItem: (key, value) => storage.set(key, value),
@@ -59,13 +60,20 @@ async function setup(t, initialSave = {}) {
 function startGame(store, fetchImpl = store.fetch) {
   const inputHandlers = new Map();
   const worldHandlers = new Map();
+  const documentHandlers = new Map();
+  const materials = new Map();
+  const blockTypes = new Map();
+  const elements = [];
   const chunks = new Map();
   const deliveries = new Map();
   const getChunk = pos => chunks.get(pos.map(n => Math.floor(n / 24)).join(','));
   const localPosition = (pos, chunk) => pos.map((n, axis) => n - chunk.pos[axis]);
   class Engine {
     constructor() {
-      this.registry = { registerMaterial() {}, registerBlock() {} };
+      this.registry = {
+        registerMaterial: (name, options) => materials.set(name, options),
+        registerBlock: (id, options) => blockTypes.set(id, options),
+      };
       this.container = { hasPointerLock: true };
       this.inputs = { down: { on: (name, handler) => inputHandlers.set(name, handler) } };
       this.world = {
@@ -89,11 +97,35 @@ function startGame(store, fetchImpl = store.fetch) {
     }
   }
   const context = {
-    Engine, fetch: fetchImpl, localStorage: store.localStorage,
+    Engine, fetch: async (url, options) => {
+      const target = new URL(url);
+      assert.equal(options ? JSON.parse(options.body).username : target.searchParams.get('username'), 'James');
+      if (options) assert.equal(target.searchParams.has('username'), false);
+      if (target.pathname === '/api/sessions') return { ok: true, json: async () => ({ sessionId: 1 }) };
+      if (target.pathname.startsWith('/api/sessions/') || target.pathname === '/api/events') return { ok: true, json: async () => ({}) };
+      return fetchImpl(url, options);
+    }, localStorage: store.localStorage,
+    URLSearchParams, sessionStorage: { getItem: () => 'James' },
+    window: { addEventListener() {}, location: {} },
+    document: {
+      createElement: () => ({ style: {}, children: [], addEventListener() {},
+        appendChild(child) { this.children.push(child); },
+        setAttribute(name, value) { this[name] = value; } }),
+      addEventListener: (name, handler) => documentHandlers.set(name, handler),
+      body: { appendChild: element => elements.push(element) },
+    },
     console: { log() {}, error() {} },
   };
   vm.runInNewContext(source, context);
+  store.useGenerator(context.game.generatedChunk);
   return Object.assign(context.game, {
+    materials, blockTypes,
+    palette: elements.find(element => element.className === 'block-palette'),
+    pressKey(key, options = {}) {
+      const event = { key, preventDefault() { this.defaultPrevented = true; }, ...options };
+      documentHandlers.get('keydown')(event);
+      return event;
+    },
     async load(i, j, k) {
       const key = [i, j, k].join(',');
       const data = ndarray(new Uint16Array(24 ** 3), [24, 24, 24]);
@@ -114,7 +146,7 @@ function startGame(store, fetchImpl = store.fetch) {
   });
 }
 
-test('refresh recovers all queued chunk edits before JSON writes finish', async t => {
+test('refresh recovers all queued chunk edits before SQLite writes finish', async t => {
   const untouched = Array(24 ** 3).fill(3);
   const oldGround = Array(24 ** 3).fill(0);
   for (let x = 0; x < 24; x++) {
@@ -143,7 +175,7 @@ test('refresh recovers all queued chunk edits before JSON writes finish', async 
   const restored = await refreshed.load(0, 0, 0);
   assert.equal(restored.voxels.get(0, 0, 0), 0);
   assert.equal(restored.voxels.get(1, 0, 0), 0);
-  assert.equal(restored.voxels.get(2, 1, 0), 1);
+  assert.equal(restored.voxels.get(2, 1, 0), 4);
   assert.equal((await refreshed.load(1, 0, 0)).voxels.get(0, 0, 0), 0);
   assert.equal((await refreshed.load(-1, -1, 0)).voxels.get(0, 23, 0), 0);
   resumeSaves.resolve();
@@ -151,7 +183,7 @@ test('refresh recovers all queued chunk edits before JSON writes finish', async 
   assert.equal(store.localStorage.getItem(backupKey), null);
   assert.deepEqual(store.readSave()['8']['0']['0'], untouched);
 
-  // With no browser backup left, another reload must restore from JSON alone.
+  // With no browser backup left, another reload must restore from SQLite alone.
   const fromDisk = startGame(store);
   const diskChunk = await fromDisk.load(0, 0, 0);
   assert.deepEqual(Array.from(diskChunk.voxels.data), Array.from(restored.voxels.data));
@@ -214,4 +246,99 @@ test('failed saves remain recoverable and blocked placement does not create a sa
   await refreshed.waitForSaves();
   assert.equal(store.localStorage.getItem(backupKey), null);
   assert.equal(store.readSave()['0']['0']['0'][3 * 24 * 24], 0);
+});
+
+test('number keys place both color sets, including glass, and all types survive reload', async t => {
+  const store = await setup(t);
+  const game = startGame(store);
+  const chunk = await game.load(0, 0, 0);
+  const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
+  assert.equal(game.blockTypes.size, 20);
+  for (let set = 0; set < 2; set++) {
+    for (let slot = 0; slot < keys.length; slot++) {
+      assert.equal(game.pressKey(keys[slot]).defaultPrevented, true);
+      const x = set * 10 + slot;
+      game.placeBlock([x, 1, 0]);
+      assert.equal(chunk.voxels.get(x, 1, 0), 4 + x);
+      assert.match(game.palette.children[0].textContent, new RegExp(`Set ${set + 1}/2`));
+      assert.match(game.palette.children[1].children[slot].className, /selected/);
+    }
+    game.pressKey('Tab');
+  }
+  assert.match(game.palette.children[0].textContent, /Set 1\/2 · Pink/);
+  const glass = game.blockTypes.get(23);
+  assert.equal(glass.solid, true);
+  assert.equal(glass.opaque, false);
+  assert.equal(game.materials.get(glass.material).color[3], 0.3);
+  await game.waitForSaves();
+  const reloaded = await startGame(store).load(0, 0, 0);
+  for (let x = 0; x < 20; x++) assert.equal(reloaded.voxels.get(x, 1, 0), 4 + x);
+});
+
+test('palette switching ignores held keys and respects released pointer lock and shortcuts', async t => {
+  const game = startGame(await setup(t));
+  const label = () => game.palette.children[0].textContent;
+  assert.match(label(), /Set 1\/2 · Red/);
+  game.pressKey('Tab');
+  assert.match(label(), /Set 2\/2 · White/);
+  assert.equal(game.pressKey('Tab', { repeat: true }).defaultPrevented, true);
+  assert.match(label(), /Set 2\/2 · White/);
+  game.pressKey('0');
+  assert.match(label(), /Glass/);
+  for (const modifier of ['ctrlKey', 'altKey', 'metaKey']) {
+    assert.equal(game.pressKey('1', { [modifier]: true }).defaultPrevented, undefined);
+    assert.match(label(), /Glass/);
+  }
+  game.noa.container.hasPointerLock = false;
+  assert.equal(game.pressKey('Tab').defaultPrevented, undefined);
+  game.pressKey('1');
+  assert.match(label(), /Set 2\/2 · Glass/);
+  game.noa.container.hasPointerLock = true;
+  assert.equal(game.pressKey('w').defaultPrevented, undefined);
+  game.pressKey('Tab');
+  assert.match(label(), /Set 1\/2 · Pink/);
+});
+
+test('generated terrain uses three palette colors in layers and survives saving at negative coordinates', async t => {
+  const store = await setup(t);
+  const game = startGame(store);
+  const chunk = await game.load(-1, 0, -1);
+  for (let x = 0; x < 24; x++) for (let z = 0; z < 24; z++) {
+    assert.equal(chunk.voxels.get(x, 0, z), 8);
+    assert.equal(chunk.voxels.get(x, 1, z), 0);
+  }
+  const underground = await game.load(-1, -1, -1);
+  for (let x = 0; x < 24; x++) for (let z = 0; z < 24; z++) {
+    for (let y = 0; y < 20; y++) assert.equal(underground.voxels.get(x, y, z), 0);
+    assert.equal(underground.voxels.get(x, 20, z), 16);
+    assert.equal(underground.voxels.get(x, 21, z), 16);
+    assert.equal(underground.voxels.get(x, 22, z), 18);
+    assert.equal(underground.voxels.get(x, 23, z), 18);
+  }
+  game.breakBlock([-24, 0, -24]);
+  game.pressKey('Tab');
+  game.pressKey('0');
+  game.placeBlock([-24, 1, -24]);
+  await game.waitForSaves();
+  const refreshed = startGame(store);
+  const restored = await refreshed.load(-1, 0, -1);
+  assert.deepEqual(Array.from(restored.voxels.data), Array.from(chunk.voxels.data));
+  assert.deepEqual(Array.from((await refreshed.load(-1, -1, -1)).voxels.data), Array.from(underground.voxels.data));
+});
+
+test('legacy terrain IDs load as palette colors from saved blocks and pending chunk backups', async t => {
+  const legacy = Array(24 ** 3).fill(0);
+  legacy[0] = 1;
+  legacy[1] = 2;
+  legacy[2] = 3;
+  legacy[3] = 23;
+  const store = await setup(t, { 0: { 0: { 0: legacy } } });
+  const fromDisk = await startGame(store).load(0, 0, 0);
+  assert.deepEqual(Array.from(fromDisk.voxels.data).slice(0, 5), [8, 18, 16, 23, 0]);
+  store.localStorage.setItem(backupKey, JSON.stringify([['0,0,0', legacy]]));
+  const resumed = startGame(store);
+  const fromBackup = await resumed.load(0, 0, 0);
+  assert.deepEqual(Array.from(fromBackup.voxels.data).slice(0, 5), [8, 18, 16, 23, 0]);
+  await resumed.waitForSaves();
+  assert.deepEqual(store.readSave()['0']['0']['0'].slice(0, 5), [8, 18, 16, 23, 0]);
 });

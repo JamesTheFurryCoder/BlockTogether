@@ -1,7 +1,8 @@
 import React from 'react'
 import './LandingPage.css'
 
-export default function LandingPageView({ onViewStats }) {
+export default function LandingPageView({ onViewStats, onViewMinigames }) {
+  const username = sessionStorage.getItem('blocktogether:username')
   return (
     <div className="landing-page">
       <header className="site-header">
@@ -10,7 +11,7 @@ export default function LandingPageView({ onViewStats }) {
             <nav aria-label="Main navigation">
               <ul className="nav-list">
                 <li><a className="nav-link active" href="#home">Home</a></li>
-                <li><a className="nav-link" href="#minigames">Minigames</a></li>
+                <li><a className="nav-link" href="#minigames" onClick={onViewMinigames}>Minigames</a></li>
                 <li><a className="nav-link" href="#profile">Profile</a></li>
               </ul>
             </nav>
@@ -26,7 +27,7 @@ export default function LandingPageView({ onViewStats }) {
                 <button className="avatar-edit" type="button" aria-label="Edit avatar" data-action="edit-avatar">Edit</button>
               </div>
               <div>
-                <h1 data-player-name="">Alex Johnson</h1>
+                <h1 data-player-name="">{username}</h1>
                 <p className="muted" data-player-handle="">@blockbuilder</p>
               </div>
             </div>
@@ -45,7 +46,7 @@ export default function LandingPageView({ onViewStats }) {
                 <p className="eyebrow">PICK UP WHERE YOU LEFT OFF</p>
                 <h2 id="recent-games-title">Recent minigames</h2>
               </div>
-              <a className="text-link" href="#minigames" data-action="view-all-games">All games <span aria-hidden="true">→</span></a>
+              <a className="text-link" href="#minigames" onClick={onViewMinigames} data-action="view-all-games">All games <span aria-hidden="true">→</span></a>
             </div>
             <div className="game-list" data-game-list=""></div>
           </section>
@@ -58,8 +59,8 @@ export default function LandingPageView({ onViewStats }) {
               <p>Your worlds and friends are waiting.</p>
             </div>
             <div className="footer-actions">
-              <a className="button button-primary" href="playerhome.html" data-action="enter-home">Enter my home</a>
-              <a className="button button-secondary" href="#minigames" data-action="play-minigames">Play minigames</a>
+              <a className="button button-primary" href="/game/player-home/playerhome.html" data-action="enter-home">Enter my home</a>
+              <a className="button button-secondary" href="#minigames" onClick={onViewMinigames} data-action="play-minigames">Play minigames</a>
               <a className="button button-primary" href="#stats" onClick={onViewStats} data-action="view-stats">View stats</a>
             </div>
           </div>
