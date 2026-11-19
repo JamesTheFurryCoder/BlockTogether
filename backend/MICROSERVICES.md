@@ -2,8 +2,9 @@
 
 | Service | Port | Responsibility | Data owned | Calls |
 |---|---|---|---|---|
-| API Gateway | 3000 | Single public entry point, `/api/health`, 502 handling | none | Player Data Service |
+| API Gateway | 3000 | Single public entry point, `/api/health`, 502 handling | none | Player Data Service, External API Service |
 | Player Data Service | 4001 | Users, play sessions, gameplay events, statistics | SQLite file `data/players.db` (tables users, sessions, events) | none |
+| External API Service | 4003 | Entry point for external API integrations (health check available; integrations can be added) | none | none yet |
 
 The browser calls only the gateway. The gateway adds the internal `x-api-key` header. Calling the Player Data Service directly without the key returns 401.
 
@@ -15,10 +16,22 @@ npm run start:services
 ```
 Then open http://localhost:3000/api/health.
 
+To run only the External API Service from the repository root:
+```
+npm --prefix backend/external-api-service install
+npm --prefix backend/external-api-service start
+```
+Its health check is http://localhost:4003/health. The default port is 4003; set
+`PORT` in the process environment to override it. The gateway uses
+`EXTERNAL_API_URL` (default `http://localhost:4003`) to reach it. Both services
+must use the same `SERVICE_API_KEY`. The `.env.example` files document these
+settings; `npm start` does not automatically load `.env` files.
+
 ## Public routes (gateway)
 | Method | Path | Purpose |
 |---|---|---|
 | GET | /api/health | Status of every service (503 if one is down) |
+| GET | /api/external/health | External API Service health check |
 | GET, POST | /api/players | List players, create a player |
 | GET | /api/players/:id | One player |
 | GET | /api/players/:id/stats | Playtime, averages, event counts, break reminder |

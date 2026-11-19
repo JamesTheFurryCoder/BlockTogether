@@ -7,8 +7,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const SERVICE_API_KEY = process.env.SERVICE_API_KEY || "tcss460-secret";
 const SERVICES = {
-  player: process.env.PLAYER_URL || "http://localhost:4001"
-  // later: nutrition / integration: ..., ai: ...
+  player: process.env.PLAYER_URL || "http://localhost:4001",
+  external: process.env.EXTERNAL_API_URL || "http://localhost:4003"
 };
 
 app.use(cors());
@@ -49,6 +49,9 @@ app.get("/api/health", async (req, res) => {
   const allUp = entries.every(([, s]) => s === "up");
   res.status(allUp ? 200 : 503).json({ gateway: "up", services });
 });
+
+// ---------- external API service ----------
+app.get("/api/external/health", (req, res) => forward(res, "external", "/health"));
 
 // ---------- players ----------
 app.get("/api/players", (req, res) => forward(res, "player", "/users"));
