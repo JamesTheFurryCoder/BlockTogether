@@ -3,3 +3,5 @@
 .env
 
 backend/player-data-service/data/*.db
+
+**/*.db

@@ -52,6 +52,8 @@ app.get("/api/health", async (req, res) => {
 
 // ---------- external API service ----------
 app.get("/api/external/health", (req, res) => forward(res, "external", "/health"));
+// GET /api/weather?city=Tacoma&state=Washington&country=US
+app.get("/api/weather", (req, res) => forward(res, "external", `/weather${qs(req)}`));
 
 // ---------- players ----------
 app.get("/api/players", (req, res) => forward(res, "player", "/users"));

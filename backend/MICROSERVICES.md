@@ -4,7 +4,7 @@
 |---|---|---|---|---|
 | API Gateway | 3000 | Single public entry point, `/api/health`, 502 handling | none | Player Data Service, External API Service |
 | Player Data Service | 4001 | Users, play sessions, gameplay events, statistics | SQLite file `data/players.db` (tables users, sessions, events) | none |
-| External API Service | 4003 | Entry point for external API integrations (health check available; integrations can be added) | none | none yet |
+| External API Service | 4003 | Weather lookup through the free Open-Meteo APIs (geocoding + forecast) | none (external: Open-Meteo) | working |
 
 The browser calls only the gateway. The gateway adds the internal `x-api-key` header. Calling the Player Data Service directly without the key returns 401.
 
@@ -32,6 +32,7 @@ settings; `npm start` does not automatically load `.env` files.
 |---|---|---|
 | GET | /api/health | Status of every service (503 if one is down) |
 | GET | /api/external/health | External API Service health check |
+| GET | /api/weather?city=&state=&country= | Current, hourly and daily weather (`city` required; 400 if missing, 404 if not found, 502 if Open-Meteo is down) |
 | GET, POST | /api/players | List players, create a player |
 | GET | /api/players/:id | One player |
 | GET | /api/players/:id/stats | Playtime, averages, event counts, break reminder |
