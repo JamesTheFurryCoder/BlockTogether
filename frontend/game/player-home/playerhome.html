@@ -18,6 +18,12 @@
     </div>
     <div class="crosshair" aria-hidden="true">+</div>
   </main>
+  <section class="ai-controls" aria-label="AI block generator">
+    <label for="aiPrompt">Describe what you want to build, make sure to refresh the page after generating blocks.</label>
+    <input type="text" placeholder="Enter AI prompt..." id="aiPrompt" aria-describedby="aiPromptHelp">
+    <button type="button" id="generateBlocks">Generate Blocks</button>
+    <small id="aiPromptHelp">Press Esc to release the mouse and enter a prompt.</small>
+  </section>
   <script type="module" src="./playerHome.js"></script>
 </body>
 </html>

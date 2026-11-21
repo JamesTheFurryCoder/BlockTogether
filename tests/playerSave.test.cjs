@@ -10,7 +10,7 @@ const source = fs.readFileSync(path.join(root, 'frontend', 'game', 'player-home'
   .replace("import { Engine } from 'noa-engine'", '')
   .replace('import.meta.env.VITE_API_BASE_URL', '""')
   .replace('export default noa',
-    'globalThis.game = {noa, grid, gridReady, generatedChunk, waitForSaves: () => saveQueue}');
+    'globalThis.game = {noa, grid, gridReady, generatedChunk, generateblocksfromAIoutput, waitForSaves: () => saveQueue}');
 const backupKey = 'blocktogether:pending-chunks:James';
 
 function deferred() {
@@ -64,6 +64,8 @@ function startGame(store, fetchImpl = store.fetch) {
   const materials = new Map();
   const blockTypes = new Map();
   const elements = [];
+  const aiElements = new Map(['aiPrompt', 'generateBlocks', 'aiPromptHelp'].map(id =>
+    [id, { value: '', setAttribute() {}, addEventListener() {} }]));
   const chunks = new Map();
   const deliveries = new Map();
   const getChunk = pos => chunks.get(pos.map(n => Math.floor(n / 24)).join(','));
@@ -108,6 +110,7 @@ function startGame(store, fetchImpl = store.fetch) {
     URLSearchParams, sessionStorage: { getItem: () => 'James' },
     window: { addEventListener() {}, location: {} },
     document: {
+      getElementById: id => aiElements.get(id),
       createElement: () => ({ style: {}, children: [], addEventListener() {},
         appendChild(child) { this.children.push(child); },
         setAttribute(name, value) { this[name] = value; } }),
@@ -341,4 +344,61 @@ test('legacy terrain IDs load as palette colors from saved blocks and pending ch
   assert.deepEqual(Array.from(fromBackup.voxels.data).slice(0, 5), [8, 18, 16, 23, 0]);
   await resumed.waitForSaves();
   assert.deepEqual(store.readSave()['0']['0']['0'].slice(0, 5), [8, 18, 16, 23, 0]);
+});
+
+test('AI output saves loaded and distant chunks while preserving existing edits and terrain', async t => {
+  const store = await setup(t);
+  const game = startGame(store);
+  await game.load(0, 0, 0);
+  await game.load(10, 0, -11);
+  game.placeBlock([241, 1, -241]);
+  await game.waitForSaves();
+  // Start a new page so that the distant saved chunk is outside NOA's loaded radius.
+  const page = startGame(store);
+  const loaded = await page.load(0, 0, 0);
+  const count = await page.generateblocksfromAIoutput('```diff\n0,1,0,4\n0,1,0,5\n-1,1,-1,23\n240,1,-241,14\n240,0,-241,0\n```');
+  assert.equal(count, 4);
+  assert.equal(loaded.voxels.get(0, 1, 0), 5);
+  // A later manual edit of the same loaded chunk must not overwrite AI blocks.
+  page.placeBlock([1, 1, 0]);
+  await page.waitForSaves();
+  assert.equal(store.localStorage.getItem(backupKey), null);
+
+  const refreshed = startGame(store);
+  const near = await refreshed.load(0, 0, 0);
+  assert.equal(near.voxels.get(0, 1, 0), 5);
+  assert.equal(near.voxels.get(1, 1, 0), 4);
+  assert.equal(near.voxels.get(0, 0, 0), 8);
+  assert.equal((await refreshed.load(-1, 0, -1)).voxels.get(23, 1, 23), 23);
+  const far = await refreshed.load(10, 0, -11);
+  assert.equal(far.voxels.get(0, 1, 23), 14);
+  assert.equal(far.voxels.get(1, 1, 23), 4);
+  assert.equal(far.voxels.get(0, 0, 23), 0);
+  assert.equal(far.voxels.get(1, 0, 23), 8);
+});
+
+test('AI validation rejects an entire malformed response before modifying the world', async t => {
+  const store = await setup(t);
+  const game = startGame(store);
+  const chunk = await game.load(0, 0, 0);
+  for (const invalid of ['', '```text\n```', 'words', '0,1,0,4\n1,1,0,99',
+    '0,1,0,4\n1.5,1,0,4', '0,1,0,4\n9007199254740992,1,0,4', '0,1,0,4\n1,1,,4']) {
+    await assert.rejects(game.generateblocksfromAIoutput(invalid));
+    assert.equal(chunk.voxels.get(0, 1, 0), 0);
+    assert.equal(store.localStorage.getItem(backupKey), null);
+    assert.deepEqual(store.readSave(), {});
+  }
+});
+
+test('AI blocks outside loaded chunks recover on refresh after failed server saves', async t => {
+  const store = await setup(t);
+  const page = startGame(store, (url, options) => options
+    ? Promise.resolve({ ok: false, status: 500 }) : store.fetch(url));
+  await assert.rejects(page.generateblocksfromAIoutput('240,1,-241,4\n-240,1,240,5'), /Could not save/);
+  assert.equal(JSON.parse(store.localStorage.getItem(backupKey)).length, 2);
+  const refreshed = startGame(store);
+  assert.equal((await refreshed.load(10, 0, -11)).voxels.get(0, 1, 23), 4);
+  assert.equal((await refreshed.load(-10, 0, 10)).voxels.get(0, 1, 0), 5);
+  await refreshed.waitForSaves();
+  assert.equal(store.localStorage.getItem(backupKey), null);
 });

@@ -4,7 +4,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { test } = require('node:test');
 
-test('SQLite gameplay persists across restarts while authentication stays in JSON', async () => {
+test('SQLite gameplay persists across restarts while authentication stays in JSON', async t => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'blocktogether-sqlite-'));
   const backend = path.resolve(__dirname, '../backend');
   let server;
@@ -43,6 +43,55 @@ test('SQLite gameplay persists across restarts while authentication stays in JSO
       return { status: response.status, body: await response.json() };
     };
     await start();
+    await t.test('AI route forwards text, service errors, and connection failures', async () => {
+      const originalFetch = global.fetch;
+      const originalAiUrl = process.env.AI_AGENT_URL;
+      process.env.AI_AGENT_URL = 'http://ai-service.test:4004/';
+      const aiUrl = 'http://ai-service.test:4004/aipromptblocksgenerator';
+      let upstream;
+      global.fetch = async (url, options) => {
+        if (url !== aiUrl) return originalFetch(url, options);
+        assert.equal(options.method, 'POST');
+        assert.deepEqual(JSON.parse(options.body), { prompt: 'Build a castle' });
+        assert.ok(options.signal instanceof AbortSignal);
+        return upstream();
+      };
+      const generate = () => originalFetch(
+        `http://127.0.0.1:${server.address().port}/aipromptblocksgenerator`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: 'Build a castle' }),
+        }
+      );
+      try {
+        const raw = '0,1,0,16\r\n1,1,0,23\n';
+        upstream = () => new Response(raw, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+        const response = await generate();
+        assert.equal(response.status, 200);
+        assert.match(response.headers.get('content-type'), /^text\/plain/);
+        assert.equal(await response.text(), raw);
+
+        upstream = () => new Response(JSON.stringify({ error: 'AI service is not configured.' }), {
+          status: 503, headers: { 'Content-Type': 'application/json' },
+        });
+        const unconfigured = await generate();
+        assert.equal(unconfigured.status, 503);
+        assert.deepEqual(await unconfigured.json(), { error: 'AI service is not configured.' });
+
+        upstream = () => { throw new TypeError('fetch failed'); };
+        const unavailable = await generate();
+        assert.equal(unavailable.status, 502);
+        assert.match((await unavailable.json()).error, /Start backend\/ai-agent-service/);
+
+        upstream = () => { throw new DOMException('Timed out', 'TimeoutError'); };
+        const timeout = await generate();
+        assert.equal(timeout.status, 504);
+        assert.match((await timeout.json()).error, /timed out/);
+      } finally {
+        global.fetch = originalFetch;
+        if (originalAiUrl === undefined) delete process.env.AI_AGENT_URL;
+        else process.env.AI_AGENT_URL = originalAiUrl;
+      }
+    });
     assert.equal((await request('/api/login', 'POST', { username: 'James', password: '123' })).status, 200);
     const paddedLogin = await request('/api/login', 'POST', { username: ' James ', password: '123' });
     assert.equal(paddedLogin.status, 200);

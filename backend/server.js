@@ -87,6 +87,35 @@ app.post('/api/register', (req, res) => {
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
+// The browser uses this backend; keep AI service calls on the server side.
+app.post('/aipromptblocksgenerator', async (req, res) => {
+  const aiServiceUrl = (process.env.AI_AGENT_URL || 'http://localhost:4004').replace(/\/$/, '');
+  try {
+    const response = await fetch(`${aiServiceUrl}/aipromptblocksgenerator`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.SERVICE_API_KEY || 'tcss460-secret',
+      },
+      body: JSON.stringify(req.body),
+      // The AI service allows up to 60 seconds for generation.
+      signal: AbortSignal.timeout(65_000),
+    });
+    const body = await response.text();
+    // Successful results are raw coordinate text; errors are JSON.
+    res.status(response.status)
+      .type(response.headers.get('content-type') || 'text/plain')
+      .send(body);
+  } catch (error) {
+    const timedOut = error.name === 'TimeoutError';
+    res.status(timedOut ? 504 : 502).json({
+      error: timedOut
+        ? 'AI block generation timed out. Please try again.'
+        : 'Could not reach the AI service. Start backend/ai-agent-service and check AI_AGENT_URL (default http://localhost:4004).',
+    });
+  }
+});
+
 // Gameplay requests must name a user; never silently write to the demo row.
 function readGameplayDb(req, res) {
   let username;

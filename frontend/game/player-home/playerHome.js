@@ -227,6 +227,7 @@ const gridReady = loadGrid();
 
 const noa = new Engine({
   debug: false,
+  chunkSize: CHUNK_SIZE,
   playerStart: [0, 3, 0],
   chunkAddDistance: [1, 1],
   chunkRemoveDistance: [2, 2],
@@ -380,6 +381,105 @@ window.addEventListener('pagehide', () => {
   endSession().catch(error => {
     console.error('Could not end session:', error);
   });
+});
+
+function sendAIPrompt(prompt) {
+  return fetch(`${API_BASE_URL}/aipromptblocksgenerator`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ prompt })
+  });
+}
+
+// Coordinates are absolute world positions, not offsets from the player.
+async function generateblocksfromAIoutput(output) {
+  if (typeof output !== 'string' || !output.trim()) {
+    throw new Error('AI returned no block data.');
+  }
+
+  // Accept a surrounding Markdown fence without treating negative x values as diff markers.
+  const text = output.trim().replace(/^```[^\r\n]*\r?\n/, '').replace(/\r?\n```$/, '');
+  const edits = new Map();
+  const validIds = new Set([0, ...placeableBlocks.map(block => block.id)]);
+  for (const [lineIndex, row] of text.split(/\r?\n/).entries()) {
+    if (!row.trim()) continue;
+    if (!/^\s*-?\d+\s*,\s*-?\d+\s*,\s*-?\d+\s*,\s*\d+\s*$/.test(row)) {
+      throw new Error(`Invalid AI block on line ${lineIndex + 1}: expected x,y,z,id.`);
+    }
+    const [x, y, z, blockId] = row.split(',').map(Number);
+    if (![x, y, z, blockId].every(Number.isSafeInteger) || !validIds.has(blockId)) {
+      throw new Error(`Invalid coordinates or block ID on line ${lineIndex + 1}.`);
+    }
+    // The last row wins if the AI repeats a coordinate.
+    edits.set(`${x},${y},${z}`, { x, y, z, blockId });
+  }
+  if (!edits.size) throw new Error('AI returned no block data.');
+
+  await gridReady;
+  const changedChunks = new Map();
+  for (const { x, y, z, blockId } of edits.values()) {
+    const [i, j, k] = [x, y, z].map(value => Math.floor(value / CHUNK_SIZE));
+    const key = chunkKey(i, j, k);
+    const loadedChunk = noa.world._getChunkByCoords(x, y, z);
+    if (!changedChunks.has(key)) {
+      // Preserve existing player edits and terrain, including in unloaded chunks.
+      const blocks = loadedChunk
+        ? Array.from(loadedChunk.voxels.data)
+        : grid.has(key) ? grid.get(key).slice() : generatedChunk(j);
+      changedChunks.set(key, blocks);
+    }
+    const index = (x - i * CHUNK_SIZE) * CHUNK_SIZE ** 2
+      + (y - j * CHUNK_SIZE) * CHUNK_SIZE + z - k * CHUNK_SIZE;
+    changedChunks.get(key)[index] = blockId;
+    // NOA silently ignores unloaded chunks. Save their arrays without calling setBlock.
+    if (loadedChunk) noa.setBlock(blockId, [x, y, z]);
+  }
+
+  for (const [key, blocks] of changedChunks) {
+    grid.set(key, blocks);
+    pendingSaves.set(key, blocks);
+  }
+  // Back up all affected chunks before starting network requests, for safe refreshes.
+  storePendingSaves();
+  for (const [key, blocks] of changedChunks) {
+    queueChunkSave(key.split(',').map(Number), blocks);
+  }
+  await saveQueue;
+  if ([...changedChunks.keys()].some(key => pendingSaves.has(key))) {
+    throw new Error('Could not save all generated blocks to the server. Pending saves will retry on refresh.');
+  }
+  return edits.size;
+}
+
+const aiPromptInput = document.getElementById('aiPrompt');
+const generateBlocksButton = document.getElementById('generateBlocks');
+const aiPromptStatus = document.getElementById('aiPromptHelp');
+aiPromptStatus.setAttribute('role', 'status');
+
+generateBlocksButton.addEventListener('click', async () => {
+  const prompt = aiPromptInput.value.trim();
+  if (!prompt || generateBlocksButton.disabled) return;
+
+  generateBlocksButton.disabled = true;
+  generateBlocksButton.textContent = 'Generating...';
+  aiPromptStatus.textContent = 'Generating blocks...';
+  try {
+    const response = await sendAIPrompt(prompt);
+    await checkGameplayResponse(response, 'Failed to generate blocks');
+    const blockData = await response.text();
+    generateBlocksButton.textContent = 'Saving...';
+    aiPromptStatus.textContent = 'Saving generated blocks...';
+    const count = await generateblocksfromAIoutput(blockData);
+    aiPromptStatus.textContent = `Saved ${count} blocks. Refresh the page to see the full structure.`;
+  } catch (error) {
+    console.error('Error generating blocks:', error);
+    aiPromptStatus.textContent = error.message;
+  } finally {
+    generateBlocksButton.disabled = false;
+    generateBlocksButton.textContent = 'Generate Blocks';
+  }
 });
 
 // End the session before returning home.

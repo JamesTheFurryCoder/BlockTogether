@@ -10,5 +10,8 @@
   },
   "admin": {
     "password": "test"
+  },
+  "AI": {
+    "password": "test"
   }
 }
