@@ -1,0 +1,27 @@
+sequenceDiagram
+  autonumber
+  actor U as User
+  participant R as React (5173)
+  participant G as API Gateway (3000)
+  participant A as AI Agent Service (4004)
+  participant Q as Groq
+  participant P as Player Data Service (4001)
+  participant E as External API Service (4003)
+
+  U->>R: Ask for a playtime and weather tip
+  R->>G: POST /api/ai/insights
+  G->>A: POST /insights (x-api-key)
+  A->>Q: messages + tool schemas
+  Q-->>A: call getPlayerStats(userId)
+  A->>P: GET /users/1/stats (x-api-key)
+  P-->>A: stats JSON
+  A->>Q: tool result
+  Q-->>A: call getWeather(city)
+  A->>E: GET /weather?city=... (x-api-key)
+  E-->>A: weather JSON
+  A->>Q: tool result
+  Q-->>A: final answer
+  A->>A: validate JSON schema, add toolsUsed
+  A-->>G: 200 { result, toolsUsed, aiGenerated: true }
+  G-->>R: 200 JSON
+  R-->>U: Cards + "How this answer was produced"
