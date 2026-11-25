@@ -1,0 +1,21 @@
+flowchart LR
+  R["React + Vite<br/>(port 5173)"]
+  G["API Gateway<br/>(port 3000)<br/>/api/... and /docs"]
+  P["Player Data Service<br/>(port 4001)"]
+  E["External API Service<br/>(port 4003)"]
+  A["AI Agent Service<br/>(port 4004)"]
+  DB[("SQLite<br/>players.db<br/>users, sessions, events")]
+  OM["Open-Meteo<br/>weather API"]
+  GQ["Groq API"]
+  L["Legacy backend<br/>(port 3001)<br/>being retired"]
+
+  R -->|"HTTP/JSON (browser calls only the gateway)"| G
+  G -->|"x-api-key"| P
+  G -->|"x-api-key"| E
+  G -->|"x-api-key"| A
+  P --> DB
+  E --> OM
+  A --> GQ
+  A -.->|"tool calls (x-api-key)"| P
+  A -.->|"tool calls (x-api-key)"| E
+  R -.->|"stats, saves (not yet moved)"| L
