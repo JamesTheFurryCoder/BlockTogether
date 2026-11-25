@@ -1,5 +1,9 @@
 // Player Data Service (internal). Only the API Gateway should call this service.
 import express from "express";
+import swaggerUi from "swagger-ui-express";
+import YAML from "yaml";
+import { readFileSync } from "node:fs";
+import { fileURLToPath as toPath } from "node:url";
 import cors from "cors";
 import * as db from "./db.js";
 import { hashPassword, verifyPassword } from "./auth.js";
@@ -25,6 +29,10 @@ function requireApiKey(req, res, next) {
 }
 
 app.get("/health", (req, res) => res.json({ service: "player-data-service", status: "up" }));
+// Swagger UI (open without a key, like /health).
+const openApiDocument = YAML.parse(readFileSync(toPath(new URL("./openapi.yaml", import.meta.url)), "utf8"));
+app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApiDocument));
+
 app.use(requireApiKey);
 
 // ---------- authentication ----------

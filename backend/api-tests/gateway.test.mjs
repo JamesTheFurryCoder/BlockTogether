@@ -15,6 +15,8 @@ const call = async (path, options = {}) => {
   let body; try { body = JSON.parse(text); } catch { body = text; }
   return { status: res.status, body };
 };
+const PLAYER = process.env.PLAYER_URL || "http://localhost:4001";
+const EXTERNAL = process.env.EXTERNAL_API_URL || "http://localhost:4003";
 const unique = () => `tester_${Date.now()}_${Math.floor(Math.random() * 1e4)}`;
 
 test("1. Success: GET /api/players/1/stats returns stats with a break reminder", async () => {
@@ -86,4 +88,24 @@ test("10. 502: weather call while the External API Service is stopped", { skip: 
   const { status, body } = await call("/api/weather?city=Tacoma");
   assert.equal(status, 502);
   assert.ok(body.error);
+});
+
+test("11. 401: calling the Player Data Service directly without x-api-key", async () => {
+  const res = await fetch(`${PLAYER}/users`);
+  assert.equal(res.status, 401);
+  assert.match((await res.json()).error, /x-api-key/);
+  const withKey = await fetch(`${PLAYER}/users`, { headers: { "x-api-key": process.env.SERVICE_API_KEY || "tcss460-secret" } });
+  assert.equal(withKey.status, 200);
+});
+
+test("12. 401: calling the External API Service directly without x-api-key", async () => {
+  const res = await fetch(`${EXTERNAL}/weather?city=Tacoma`);
+  assert.equal(res.status, 401);
+});
+
+test("13. Swagger UI: gateway and each service serve /docs without a key", async () => {
+  for (const base of [BASE, PLAYER, EXTERNAL]) {
+    const res = await fetch(`${base}/docs/`);
+    assert.equal(res.status, 200, `${base}/docs`);
+  }
 });

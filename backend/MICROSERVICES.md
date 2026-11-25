@@ -48,7 +48,7 @@ settings; `npm start` does not automatically load `.env` files.
 ## Automated tests
 Run `npm run seed && npm run start:services`, then in another tab `npm run test:api`.
 The tests are in `backend/api-tests/gateway.test.mjs`. Test 10 needs the External API Service stopped:
-`EXPECT_EXTERNAL_DOWN=1 npm run test:api`. Lint the OpenAPI file with `npm run lint:api`.
+`EXPECT_EXTERNAL_DOWN=1 npm run test:api`. Lint every OpenAPI file with `npm run lint:api` (the root `redocly.yaml` holds the lint rules).
 
 | # | Request | Expected | Result |
 |---|---|---|---|
@@ -62,6 +62,9 @@ The tests are in `backend/api-tests/gateway.test.mjs`. Test 10 needs the Externa
 | 8 | POST /api/ai/insights (AI_MODE=mock) | 200, mode "mock" | pass |
 | 9 | GET /api/weather without a city | 400 | pass |
 | 10 | GET /api/weather with the External API Service stopped | 502 | pass |
+| 11 | GET http://localhost:4001/users without x-api-key (direct call) | 401 | pass |
+| 12 | GET http://localhost:4003/weather without x-api-key (direct call) | 401 | pass |
+| 13 | GET /docs on the gateway, Player Data Service and External API Service | 200 | pass |
 
 ## Notes
 - SQLite comes from Node's built-in `node:sqlite` (Node 22.13 or newer), so nothing native has to be installed. Node prints an "experimental" warning; that is expected.

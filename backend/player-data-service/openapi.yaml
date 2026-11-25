@@ -1,0 +1,389 @@
+openapi: 3.0.3
+info:
+  title: BlockTogether Player Data Service (internal)
+  version: 1.0.0
+  description: |
+    Owns users, play sessions and gameplay events (SQLite). Only the API Gateway should call it.
+    Every route except GET /health requires the `x-api-key` header and answers 401 without it.
+servers:
+  - url: http://localhost:4001
+security:
+  - ApiKeyAuth: []
+tags:
+  - name: Health
+    description: Service status
+  - name: Auth
+    description: Register and log in
+  - name: Users
+    description: Players and statistics
+  - name: Sessions
+    description: Play sessions (full CRUD)
+  - name: Events
+    description: Gameplay events inside a session
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      tags: [Health]
+      summary: Service health (no key needed)
+      security: []
+      responses:
+        '200':
+          description: Service is up
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  service: { type: string, example: player-data-service }
+                  status: { type: string, example: up }
+  /auth/register:
+    post:
+      operationId: registerUser
+      tags: [Auth]
+      summary: Create an account (password stored as a scrypt hash)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Credentials' }
+      responses:
+        '201':
+          description: Account created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /auth/login:
+    post:
+      operationId: loginUser
+      tags: [Auth]
+      summary: Check a username and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Credentials' }
+      responses:
+        '200':
+          description: Login succeeded
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /users:
+    get:
+      operationId: listUsers
+      tags: [Users]
+      summary: List all users
+      responses:
+        '200':
+          description: Users
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/User' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      operationId: createUser
+      tags: [Users]
+      summary: Create a user without a password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username]
+              properties:
+                username: { type: string, maxLength: 40, example: test_user }
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /users/{id}:
+    get:
+      operationId: getUser
+      tags: [Users]
+      summary: Get one user
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: The user
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /users/{id}/stats:
+    get:
+      operationId: getUserStats
+      tags: [Users]
+      summary: Playtime statistics and break reminder
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: Statistics
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserStats' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /sessions:
+    get:
+      operationId: listSessions
+      tags: [Sessions]
+      summary: List sessions
+      parameters:
+        - { name: userId, in: query, schema: { type: integer, minimum: 1 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+      responses:
+        '200':
+          description: Sessions, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Session' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      operationId: startSession
+      tags: [Sessions]
+      summary: Start a play session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId]
+              properties:
+                userId: { type: integer, minimum: 1, example: 1 }
+                game: { type: string, maxLength: 40, example: home-world }
+      responses:
+        '201':
+          description: Session started
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Session' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /sessions/{id}:
+    get:
+      operationId: getSession
+      tags: [Sessions]
+      summary: Get one session
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: The session
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Session' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      operationId: endSession
+      tags: [Sessions]
+      summary: End a session
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                endedAt: { type: string, format: date-time }
+      responses:
+        '200':
+          description: Session ended
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Session' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      operationId: deleteSession
+      tags: [Sessions]
+      summary: Delete a session and its events
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '204': { description: Deleted }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /sessions/{id}/events:
+    get:
+      operationId: listEvents
+      tags: [Events]
+      summary: List the events of a session
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: Events
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Event' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      operationId: addEvents
+      tags: [Events]
+      summary: Add events to a session
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [events]
+              properties:
+                events:
+                  type: array
+                  minItems: 1
+                  maxItems: 500
+                  items: { $ref: '#/components/schemas/NewEvent' }
+      responses:
+        '201':
+          description: Events saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  saved: { type: integer, example: 2 }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+      description: Internal service key (read from SERVICE_API_KEY). Never sent by the browser.
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer, minimum: 1 }
+      example: 1
+  responses:
+    BadRequest:
+      description: Missing or invalid input
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unauthorized:
+      description: Missing or invalid x-api-key (or, for login, wrong username or password)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: Item does not exist
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Conflict:
+      description: Conflicts with existing data
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string, example: "User '9999' was not found." }
+    Credentials:
+      type: object
+      required: [username, password]
+      properties:
+        username: { type: string, maxLength: 40, example: demo_player }
+        password: { type: string, minLength: 6, maxLength: 100, format: password, example: password123 }
+    AuthResult:
+      type: object
+      properties:
+        message: { type: string }
+        user:
+          type: object
+          properties:
+            id: { type: integer }
+            username: { type: string }
+    User:
+      type: object
+      properties:
+        id: { type: integer, example: 1 }
+        username: { type: string, example: demo_player }
+        createdAt: { type: string, format: date-time }
+    UserStats:
+      type: object
+      properties:
+        userId: { type: integer }
+        totalSessions: { type: integer }
+        totalPlaytimeMinutes: { type: integer }
+        averageSessionMinutes: { type: integer }
+        playtimeLast24hMinutes: { type: integer }
+        blocksPlaced: { type: integer }
+        blocksBroken: { type: integer }
+        entityKills: { type: integer }
+        positionSamples: { type: integer }
+        breakReminder: { type: boolean }
+        breakReminderMessage: { type: string, nullable: true }
+    Session:
+      type: object
+      properties:
+        id: { type: integer }
+        userId: { type: integer }
+        game: { type: string, example: home-world }
+        startedAt: { type: string, format: date-time }
+        endedAt: { type: string, format: date-time, nullable: true }
+        durationMinutes: { type: integer, nullable: true }
+    NewEvent:
+      type: object
+      required: [type, x, y, z]
+      properties:
+        type: { type: string, enum: [position, block_placed, block_broken, entity_kill] }
+        x: { type: number }
+        y: { type: number }
+        z: { type: number }
+        timestamp: { type: string, format: date-time }
+    Event:
+      type: object
+      properties:
+        id: { type: integer }
+        sessionId: { type: integer }
+        type: { type: string, enum: [position, block_placed, block_broken, entity_kill] }
+        x: { type: number }
+        y: { type: number }
+        z: { type: number }
+        createdAt: { type: string, format: date-time }

@@ -5,7 +5,7 @@
     "install-all": "npm install && npm --prefix backend/api-gateway install && npm --prefix backend/player-data-service install && npm --prefix backend/external-api-service install && npm --prefix backend/ai-agent-service install && npm --prefix frontend install",
     "seed": "npm --prefix backend/player-data-service run seed",
     "start:services": "concurrently -n player,external,ai,gateway -c blue,magenta,yellow,green \"npm --prefix backend/player-data-service start\" \"npm --prefix backend/external-api-service start\" \"npm --prefix backend/ai-agent-service start\" \"npm --prefix backend/api-gateway start\"",
-    "lint:api": "npm --prefix backend/api-gateway run lint:api",
+    "lint:api": "redocly lint backend/api-gateway/openapi.yaml backend/player-data-service/openapi.yaml backend/external-api-service/openapi.yaml",
     "test:api": "node --test backend/api-tests/*.test.mjs"
   },
   "dependencies": {
@@ -13,6 +13,7 @@
   },
   "devDependencies": {
     "concurrently": "^10.0.7",
-    "vite": "^6.0.0"
+    "vite": "^6.0.0",
+    "@redocly/cli": "^1.25.0"
   }
 }
