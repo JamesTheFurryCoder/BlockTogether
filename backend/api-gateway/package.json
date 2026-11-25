@@ -5,10 +5,16 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "lint:api": "redocly lint openapi.yaml"
   },
   "dependencies": {
     "cors": "^2.8.5",
-    "express": "^4.19.2"
+    "express": "^4.19.2",
+    "swagger-ui-express": "^5.0.1",
+    "yaml": "^2.5.0"
+  },
+  "devDependencies": {
+    "@redocly/cli": "^1.25.0"
   }
 }

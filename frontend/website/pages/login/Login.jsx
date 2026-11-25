@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import './login.css'
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001').replace(/\/$/, '')
+const API_BASE_URL = (import.meta.env.VITE_GATEWAY_URL || 'http://localhost:3000').replace(/\/$/, '')
 
 async function submitCredentials(endpoint, username, password) {
   let response

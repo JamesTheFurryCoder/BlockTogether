@@ -2,6 +2,7 @@
 import express from "express";
 import cors from "cors";
 import * as db from "./db.js";
+import { hashPassword, verifyPassword } from "./auth.js";
 
 const app = express();
 const PORT = process.env.PORT || 4001;
@@ -25,6 +26,35 @@ function requireApiKey(req, res, next) {
 
 app.get("/health", (req, res) => res.json({ service: "player-data-service", status: "up" }));
 app.use(requireApiKey);
+
+// ---------- authentication ----------
+// POST /auth/register {username, password} -> 201, 400, 409
+app.post("/auth/register", (req, res) => {
+  const { username, password } = req.body ?? {};
+  if (typeof username !== "string" || !username.trim() || username.trim().length > 40) {
+    return bad(res, "username is required (1 to 40 characters).");
+  }
+  if (typeof password !== "string" || password.length < 6 || password.length > 100) {
+    return bad(res, "password is required (6 to 100 characters).");
+  }
+  const name = username.trim();
+  if (db.getUserByUsername(name)) return res.status(409).json({ error: `Username '${name}' is already taken.` });
+  const user = db.createUser(name, hashPassword(password));
+  res.status(201).json({ message: "User registered successfully", user: { id: user.id, username: user.username } });
+});
+
+// POST /auth/login {username, password} -> 200, 400, 401
+app.post("/auth/login", (req, res) => {
+  const { username, password } = req.body ?? {};
+  if (typeof username !== "string" || !username.trim() || typeof password !== "string" || !password) {
+    return bad(res, "username and password are required.");
+  }
+  const found = db.getCredentials(username.trim());
+  if (!found || !verifyPassword(password, found.passwordHash)) {
+    return res.status(401).json({ error: "Invalid username or password." });
+  }
+  res.json({ message: "Login successful", user: { id: found.id, username: found.username } });
+});
 
 // ---------- users ----------
 app.get("/users", (req, res) => res.json(db.listUsers()));

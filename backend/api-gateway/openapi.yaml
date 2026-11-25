@@ -1,0 +1,521 @@
+openapi: 3.0.3
+info:
+  title: BlockTogether API Gateway
+  version: 1.0.0
+  description: |
+    The single public entry point for BlockTogether. The browser calls only this gateway.
+    The gateway adds the internal `x-api-key` header and forwards requests to the
+    Player Data Service, External API Service (weather) and AI Agent Service.
+    If a service cannot be reached, the gateway answers 502.
+servers:
+  - url: http://localhost:3000
+    description: Local development
+# The gateway is public: the browser calls it without credentials. The internal x-api-key is added by the gateway.
+security: []
+tags:
+  - name: Health
+    description: Is the gateway and each service running?
+  - name: Auth
+    description: Register and log in
+  - name: Players
+    description: Players and their statistics
+  - name: Sessions
+    description: Play sessions (full CRUD)
+  - name: Events
+    description: Gameplay events inside a session
+  - name: Weather
+    description: Real weather from the Open-Meteo API
+  - name: AI
+    description: AI agent service (insights and block generation)
+paths:
+  /api/health:
+    get:
+      operationId: getHealth
+      tags: [Health]
+      summary: Status of the gateway and every service
+      responses:
+        '200':
+          description: All services are up
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Health' }
+        '503':
+          description: At least one service is down
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Health' }
+  /api/external/health:
+    get:
+      operationId: getExternalHealth
+      tags: [Health]
+      summary: Health check of the External API Service
+      responses:
+        '200':
+          description: Service is up
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  service: { type: string, example: external-api-service }
+                  status: { type: string, example: up }
+        '502': { $ref: '#/components/responses/BadGateway' }
+  /api/register:
+    post:
+      operationId: registerUser
+      tags: [Auth]
+      summary: Create an account (password is stored hashed)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Credentials' }
+      responses:
+        '201':
+          description: Account created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '502': { $ref: '#/components/responses/BadGateway' }
+  /api/login:
+    post:
+      operationId: loginUser
+      tags: [Auth]
+      summary: Log in with username and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Credentials' }
+      responses:
+        '200':
+          description: Login succeeded
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401':
+          description: Wrong username or password
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '502': { $ref: '#/components/responses/BadGateway' }
+  /api/players:
+    get:
+      operationId: listPlayers
+      tags: [Players]
+      summary: List all players
+      responses:
+        '200':
+          description: All players
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Player' }
+        '502': { $ref: '#/components/responses/BadGateway' }
+    post:
+      operationId: createPlayer
+      tags: [Players]
+      summary: Create a player
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username]
+              properties:
+                username: { type: string, minLength: 1, maxLength: 40, example: test_user }
+      responses:
+        '201':
+          description: Player created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Player' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '502': { $ref: '#/components/responses/BadGateway' }
+  /api/players/{id}:
+    get:
+      operationId: getPlayer
+      tags: [Players]
+      summary: Get one player
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: The player
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Player' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '502': { $ref: '#/components/responses/BadGateway' }
+  /api/players/{id}/stats:
+    get:
+      operationId: getPlayerStats
+      tags: [Players]
+      summary: Playtime statistics and break reminder for a player
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: Statistics
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlayerStats' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '502': { $ref: '#/components/responses/BadGateway' }
+  /api/sessions:
+    get:
+      operationId: listSessions
+      tags: [Sessions]
+      summary: List sessions
+      parameters:
+        - name: userId
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        '200':
+          description: Sessions, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Session' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '502': { $ref: '#/components/responses/BadGateway' }
+    post:
+      operationId: startSession
+      tags: [Sessions]
+      summary: Start a play session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId]
+              properties:
+                userId: { type: integer, minimum: 1, example: 1 }
+                game: { type: string, maxLength: 40, example: home-world }
+      responses:
+        '201':
+          description: Session started
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Session' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '502': { $ref: '#/components/responses/BadGateway' }
+  /api/sessions/{id}:
+    get:
+      operationId: getSession
+      tags: [Sessions]
+      summary: Get one session
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: The session
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Session' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '502': { $ref: '#/components/responses/BadGateway' }
+    patch:
+      operationId: endSession
+      tags: [Sessions]
+      summary: End a session
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                endedAt: { type: string, format: date-time, description: Defaults to now }
+      responses:
+        '200':
+          description: Session ended
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Session' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '502': { $ref: '#/components/responses/BadGateway' }
+    delete:
+      operationId: deleteSession
+      tags: [Sessions]
+      summary: Delete a session and its events
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '204': { description: Deleted }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '502': { $ref: '#/components/responses/BadGateway' }
+  /api/sessions/{id}/events:
+    get:
+      operationId: listEvents
+      tags: [Events]
+      summary: List the gameplay events of a session
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: Events
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Event' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '502': { $ref: '#/components/responses/BadGateway' }
+    post:
+      operationId: addEvents
+      tags: [Events]
+      summary: Add gameplay events to a session
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [events]
+              properties:
+                events:
+                  type: array
+                  minItems: 1
+                  maxItems: 500
+                  items: { $ref: '#/components/schemas/NewEvent' }
+      responses:
+        '201':
+          description: Events saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  saved: { type: integer, example: 2 }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '502': { $ref: '#/components/responses/BadGateway' }
+  /api/weather:
+    get:
+      operationId: getWeather
+      tags: [Weather]
+      summary: Current weather for a place (Open-Meteo)
+      parameters:
+        - { name: city, in: query, required: true, schema: { type: string }, example: Tacoma }
+        - { name: state, in: query, schema: { type: string }, example: Washington }
+        - { name: country, in: query, schema: { type: string }, example: US }
+      responses:
+        '200':
+          description: Weather
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Weather' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '502': { $ref: '#/components/responses/BadGateway' }
+  /api/ai/insights:
+    post:
+      operationId: getAiInsights
+      tags: [AI]
+      summary: Short AI summary of a player's statistics (mock or Groq mode)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [stats]
+              properties:
+                stats:
+                  type: object
+                  required: [totalSessions, totalPlaytimeMinutes, blocksPlaced, blocksBroken]
+                  properties:
+                    totalSessions: { type: integer, minimum: 0, example: 6 }
+                    totalPlaytimeMinutes: { type: integer, minimum: 0, example: 157 }
+                    blocksPlaced: { type: integer, minimum: 0, example: 8 }
+                    blocksBroken: { type: integer, minimum: 0, example: 6 }
+      responses:
+        '200':
+          description: Summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mode: { type: string, enum: [mock, groq] }
+                  summary: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '502': { $ref: '#/components/responses/BadGateway' }
+        '503':
+          description: AI provider is not configured
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /api/ai/blocks:
+    post:
+      operationId: generateBlocks
+      tags: [AI]
+      summary: Generate a block structure from a text prompt (Groq)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [prompt]
+              properties:
+                prompt: { type: string, maxLength: 5000, example: Generate a gray castle with four towers }
+      responses:
+        '200':
+          description: One block per line as x,y,z,id
+          content:
+            text/plain:
+              schema: { type: string, example: "0,1,0,16" }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '502': { $ref: '#/components/responses/BadGateway' }
+        '503':
+          description: AI provider is not configured
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+components:
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer, minimum: 1 }
+      example: 1
+  responses:
+    BadRequest:
+      description: The request is missing something or has an invalid value
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: The requested item does not exist
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Conflict:
+      description: The request conflicts with existing data
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    BadGateway:
+      description: The gateway could not reach the service
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string, example: "User '9999' was not found." }
+    Health:
+      type: object
+      properties:
+        gateway: { type: string, example: up }
+        services:
+          type: object
+          additionalProperties: { type: string, enum: [up, down] }
+    Credentials:
+      type: object
+      required: [username, password]
+      properties:
+        username: { type: string, minLength: 1, maxLength: 40, example: demo_player }
+        password: { type: string, minLength: 6, maxLength: 100, format: password, example: password123 }
+    AuthResult:
+      type: object
+      properties:
+        message: { type: string }
+        user:
+          type: object
+          properties:
+            id: { type: integer }
+            username: { type: string }
+    Player:
+      type: object
+      properties:
+        id: { type: integer, example: 1 }
+        username: { type: string, example: demo_player }
+        createdAt: { type: string, format: date-time }
+    PlayerStats:
+      type: object
+      properties:
+        userId: { type: integer }
+        totalSessions: { type: integer }
+        totalPlaytimeMinutes: { type: integer }
+        averageSessionMinutes: { type: integer }
+        playtimeLast24hMinutes: { type: integer }
+        blocksPlaced: { type: integer }
+        blocksBroken: { type: integer }
+        entityKills: { type: integer }
+        positionSamples: { type: integer }
+        breakReminder: { type: boolean }
+        breakReminderMessage: { type: string, nullable: true }
+    Session:
+      type: object
+      properties:
+        id: { type: integer }
+        userId: { type: integer }
+        game: { type: string, example: home-world }
+        startedAt: { type: string, format: date-time }
+        endedAt: { type: string, format: date-time, nullable: true }
+        durationMinutes: { type: integer, nullable: true }
+    NewEvent:
+      type: object
+      required: [type, x, y, z]
+      properties:
+        type: { type: string, enum: [position, block_placed, block_broken, entity_kill] }
+        x: { type: number }
+        y: { type: number }
+        z: { type: number }
+        timestamp: { type: string, format: date-time }
+    Event:
+      type: object
+      properties:
+        id: { type: integer }
+        sessionId: { type: integer }
+        type: { type: string, enum: [position, block_placed, block_broken, entity_kill] }
+        x: { type: number }
+        y: { type: number }
+        z: { type: number }
+        createdAt: { type: string, format: date-time }
+    Weather:
+      type: object
+      properties:
+        location:
+          type: object
+          properties:
+            name: { type: string }
+            state_or_region: { type: string }
+            country: { type: string }
+            latitude: { type: number }
+            longitude: { type: number }
+        weatherCurrent: { type: object, additionalProperties: true }
+        weatherHourly: { type: object, additionalProperties: true }
+        weatherDaily: { type: object, additionalProperties: true }
