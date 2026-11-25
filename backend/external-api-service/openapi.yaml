@@ -1,0 +1,142 @@
+openapi: 3.0.3
+info:
+  title: BlockTogether External API Service (internal)
+  version: 1.0.0
+  description: |
+    Wraps the free Open-Meteo weather APIs (geocoding and forecast). Only the API Gateway should call it.
+    Every route except GET /health requires the `x-api-key` header and answers 401 without it.
+servers:
+  - url: http://localhost:4003
+security:
+  - ApiKeyAuth: []
+tags:
+  - name: Health
+    description: Service status
+  - name: Weather
+    description: Weather from Open-Meteo
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      tags: [Health]
+      summary: Service health (no key needed)
+      security: []
+      responses:
+        '200':
+          description: Service is up
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  service: { type: string, example: external-api-service }
+                  status: { type: string, example: up }
+  /weather:
+    get:
+      operationId: getWeather
+      tags: [Weather]
+      summary: Weather for a place
+      parameters:
+        - { name: city, in: query, required: true, schema: { type: string }, example: Tacoma }
+        - { name: state, in: query, schema: { type: string }, example: Washington }
+        - { name: country, in: query, schema: { type: string }, example: US }
+      responses:
+        '200':
+          description: Weather
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Weather' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '502': { $ref: '#/components/responses/BadGateway' }
+    post:
+      operationId: postWeather
+      tags: [Weather]
+      summary: Weather for a place (JSON body)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [city]
+              properties:
+                city: { type: string, example: Tacoma }
+                state: { type: string, example: Washington }
+                country: { type: string, example: US }
+      responses:
+        '200':
+          description: Weather
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Weather' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '502': { $ref: '#/components/responses/BadGateway' }
+  /weather/{city}:
+    get:
+      operationId: getWeatherByCity
+      tags: [Weather]
+      summary: Weather for a city name only
+      parameters:
+        - { name: city, in: path, required: true, schema: { type: string }, example: Tacoma }
+      responses:
+        '200':
+          description: Weather
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Weather' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '502': { $ref: '#/components/responses/BadGateway' }
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+      description: Internal service key (read from SERVICE_API_KEY). Never sent by the browser.
+  responses:
+    BadRequest:
+      description: City is missing
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unauthorized:
+      description: Missing or invalid x-api-key
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: City not found
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    BadGateway:
+      description: Open-Meteo could not be reached
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string, example: City not found. }
+    Weather:
+      type: object
+      properties:
+        location:
+          type: object
+          properties:
+            name: { type: string }
+            state_or_region: { type: string }
+            country: { type: string }
+            latitude: { type: number }
+            longitude: { type: number }
+        weatherCurrent: { type: object, additionalProperties: true }
+        weatherHourly: { type: object, additionalProperties: true }
+        weatherDaily: { type: object, additionalProperties: true }

@@ -3,3 +3,6 @@ extends:
 rules:
   # Health checks and plain list routes have no client error to document.
   operation-4xx-response: off
+  # The project is a class assignment; localhost is the correct server URL.
+  no-server-example.com: off
+  info-license: off

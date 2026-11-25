@@ -1,6 +1,10 @@
 // External API Service (internal). The API Gateway calls this service.
 // It wraps the free Open-Meteo APIs (no API key needed) and returns weather for a place.
 import express from "express";
+import swaggerUi from "swagger-ui-express";
+import YAML from "yaml";
+import { readFileSync } from "node:fs";
+import { fileURLToPath as toPath } from "node:url";
 import cors from "cors";
 import { fileURLToPath } from "node:url";
 
@@ -16,6 +20,10 @@ app.get(["/", "/index.html"], (req, res) => {
   res.sendFile(fileURLToPath(new URL("./index.html", import.meta.url)));
 });
 app.get("/health", (req, res) => res.json({ service: "external-api-service", status: "up" }));
+
+// Swagger UI (open without a key, like /health).
+const openApiDocument = YAML.parse(readFileSync(toPath(new URL("./openapi.yaml", import.meta.url)), "utf8"));
+app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApiDocument));
 
 // Everything below this line requires the x-api-key header.
 app.use((req, res, next) => {
