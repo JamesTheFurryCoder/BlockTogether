@@ -19,6 +19,7 @@ export function initSchema() {
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT NOT NULL UNIQUE CHECK (length(trim(username)) > 0),
+      password_hash TEXT,
       created_at TEXT NOT NULL
     );
     CREATE TABLE IF NOT EXISTS sessions (
@@ -39,6 +40,9 @@ export function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
     CREATE INDEX IF NOT EXISTS idx_events_session ON events(session_id);
   `);
+  // Older databases were created before logins existed: add the column if it is missing.
+  const columns = db.prepare("PRAGMA table_info(users)").all().map((c) => c.name);
+  if (!columns.includes("password_hash")) db.exec("ALTER TABLE users ADD COLUMN password_hash TEXT");
 }
 
 export function resetSchema() {
@@ -59,9 +63,15 @@ const toUser = (r) => r && ({ id: r.id, username: r.username, createdAt: r.creat
 export const listUsers = () => db.prepare("SELECT * FROM users ORDER BY id").all().map(toUser);
 export const getUser = (id) => toUser(db.prepare("SELECT * FROM users WHERE id = ?").get(id));
 export const getUserByUsername = (name) => toUser(db.prepare("SELECT * FROM users WHERE username = ?").get(name));
-export function createUser(username) {
-  const info = db.prepare("INSERT INTO users (username, created_at) VALUES (?, ?)").run(username, new Date().toISOString());
+export function createUser(username, passwordHash = null) {
+  const info = db.prepare("INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, ?)")
+    .run(username, passwordHash, new Date().toISOString());
   return getUser(Number(info.lastInsertRowid));
+}
+// Returns { id, username, passwordHash } for logins, or undefined if the user does not exist.
+export function getCredentials(username) {
+  const r = db.prepare("SELECT id, username, password_hash FROM users WHERE username = ?").get(username);
+  return r && { id: r.id, username: r.username, passwordHash: r.password_hash };
 }
 
 // ---- sessions (full CRUD) ----

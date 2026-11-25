@@ -33,6 +33,11 @@ settings; `npm start` does not automatically load `.env` files.
 | GET | /api/health | Status of every service (503 if one is down) |
 | GET | /api/external/health | External API Service health check |
 | GET | /api/weather?city=&state=&country= | Current, hourly and daily weather (`city` required; 400 if missing, 404 if not found, 502 if Open-Meteo is down) |
+| POST | /api/register | Create an account (password stored as a scrypt hash); 400, 409 |
+| POST | /api/login | Log in; 400 if fields are missing, 401 if wrong |
+| POST | /api/ai/insights | AI summary of player stats (mock or Groq mode) |
+| POST | /api/ai/blocks | Block list generated from a text prompt (Groq) |
+| GET | /docs | Swagger UI (generated from `api-gateway/openapi.yaml`); raw spec at /openapi.json |
 | GET, POST | /api/players | List players, create a player |
 | GET | /api/players/:id | One player |
 | GET | /api/players/:id/stats | Playtime, averages, event counts, break reminder |
@@ -40,20 +45,23 @@ settings; `npm start` does not automatically load `.env` files.
 | GET, PATCH, DELETE | /api/sessions/:id | Read, end, or delete a session |
 | GET, POST | /api/sessions/:id/events | List or add gameplay events |
 
-## Tests run through the gateway
+## Automated tests
+Run `npm run seed && npm run start:services`, then in another tab `npm run test:api`.
+The tests are in `backend/api-tests/gateway.test.mjs`. Test 10 needs the External API Service stopped:
+`EXPECT_EXTERNAL_DOWN=1 npm run test:api`. Lint the OpenAPI file with `npm run lint:api`.
+
 | # | Request | Expected | Result |
 |---|---|---|---|
-| 1 | GET /api/health | 200, player up | pass |
-| 2 | GET /api/players/1/stats | 200, break reminder true | pass |
-| 3 | POST /api/players {"username":"test_user"} | 201 | pass |
-| 4 | POST /api/players (same name) | 409 | pass |
-| 5 | POST /api/players {} | 400 | pass |
-| 6 | GET /api/players/999 | 404 | pass |
-| 7 | POST /api/sessions, then PATCH, then DELETE | 201, 200, 204 | pass |
-| 8 | PATCH an ended session | 409 | pass |
-| 9 | GET service directly without the key | 401 | pass |
-| 10 | Stop the player service, GET /api/players | 502 | pass |
-| 11 | Stop the player service, GET /api/health | 503 | pass |
+| 1 | GET /api/players/1/stats | 200, stats with a break reminder | pass |
+| 2 | POST /api/register, then POST /api/login | 201, then 200 | pass |
+| 3 | POST /api/sessions {} | 400 (userId required) | pass |
+| 4 | POST /api/login with a wrong password | 401 | pass |
+| 5 | GET /api/players/9999 | 404 | pass |
+| 6 | POST /api/register with a taken username | 409 | pass |
+| 7 | POST, PATCH, then DELETE /api/sessions | 201, 200, 204, then 404 | pass |
+| 8 | POST /api/ai/insights (AI_MODE=mock) | 200, mode "mock" | pass |
+| 9 | GET /api/weather without a city | 400 | pass |
+| 10 | GET /api/weather with the External API Service stopped | 502 | pass |
 
 ## Notes
 - SQLite comes from Node's built-in `node:sqlite` (Node 22.13 or newer), so nothing native has to be installed. Node prints an "experimental" warning; that is expected.

@@ -1,4 +1,5 @@
 // Creates the tables and loads realistic demo data: npm run seed
+import { hashPassword } from "./auth.js";
 import { resetSchema, createUser, createSession, endSession, addEvents, EVENT_TYPES } from "./db.js";
 
 resetSchema();
@@ -9,7 +10,8 @@ const between = (a, b) => a + Math.floor(rand() * (b - a + 1));
 const pick = (arr) => arr[between(0, arr.length - 1)];
 
 const usernames = ["demo_player", "James", "Abdullah", "Cristian", "builder_bob", "maze_runner"];
-const users = usernames.map((u) => createUser(u));
+const DEMO_PASSWORD = "password123"; // every seeded demo account uses this password
+const users = usernames.map((u) => createUser(u, hashPassword(DEMO_PASSWORD)));
 const games = ["home-world", "home-world", "home-world", "maze", "arena-shooter"];
 const DAY = 24 * 60 * 60 * 1000;
 const MIN = 60 * 1000;
@@ -40,4 +42,5 @@ for (const user of users) {
 addSession(users[0], Date.now() - 5 * 60 * MIN, 45, "home-world");
 addSession(users[0], Date.now() - 2 * 60 * MIN, 30, "home-world");
 
+console.log(`Demo logins: any seeded username with password "${DEMO_PASSWORD}".`);
 console.log(`Seeded ${users.length} users, ${sessionCount} sessions and ${eventCount} events.`);

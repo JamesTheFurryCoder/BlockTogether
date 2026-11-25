@@ -2,9 +2,11 @@
   "scripts": {
     "start": "npm --prefix frontend start",
     "test": "node --test tests/*.test.cjs",
-    "install-all": "npm install && npm --prefix backend/api-gateway install && npm --prefix backend/player-data-service install && npm --prefix backend/external-api-service install && npm --prefix frontend install",
+    "install-all": "npm install && npm --prefix backend/api-gateway install && npm --prefix backend/player-data-service install && npm --prefix backend/external-api-service install && npm --prefix backend/ai-agent-service install && npm --prefix frontend install",
     "seed": "npm --prefix backend/player-data-service run seed",
-    "start:services": "concurrently -n player,external,gateway -c blue,magenta,green \"npm --prefix backend/player-data-service start\" \"npm --prefix backend/external-api-service start\" \"npm --prefix backend/api-gateway start\""
+    "start:services": "concurrently -n player,external,ai,gateway -c blue,magenta,yellow,green \"npm --prefix backend/player-data-service start\" \"npm --prefix backend/external-api-service start\" \"npm --prefix backend/ai-agent-service start\" \"npm --prefix backend/api-gateway start\"",
+    "lint:api": "npm --prefix backend/api-gateway run lint:api",
+    "test:api": "node --test backend/api-tests/*.test.mjs"
   },
   "dependencies": {
     "noa-engine": "^0.33.0"
