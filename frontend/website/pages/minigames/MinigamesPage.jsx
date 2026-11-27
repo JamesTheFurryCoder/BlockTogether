@@ -8,6 +8,7 @@ export default function MinigamesPage({onHomePage}) {
             <button onClick={onHomePage}>Back to Home</button>
             <a href="/game/mazegame.html" data-action="enter-mazegame">Maze Game</a>
             <a href="/game/arenashooter.html" data-action="enter-arenashooter">Arena Shooter</a>
+            <a href="/game/platformrunner.html" data-action="enter-platformrunner">Platform RUN!</a>
         </div>
     )
 }

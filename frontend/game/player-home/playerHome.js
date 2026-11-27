@@ -484,6 +484,7 @@ generateBlocksButton.addEventListener('click', async () => {
 
 // End the session before returning home.
 const exitButton = document.createElement('button');
+exitButton.type = 'button';
 exitButton.textContent = 'Exit to Home';
 
 Object.assign(exitButton.style, {
@@ -508,22 +509,30 @@ exitButton.addEventListener('mousedown', event => {
 
 exitButton.addEventListener('click', async event => {
   event.stopPropagation();
+  if (exitButton.disabled) return;
   exitButton.disabled = true;
   exitButton.textContent = 'Ending session…';
 
+  let exitTimeout;
   try {
-    if (sessionId === null) {
-      throw new Error('No active session. Check the backend connection.');
-    }
-
-    await saveQueue;
-    await endSession();
-
-    window.location.href = '/';
+    if (document.pointerLockElement) document.exitPointerLock();
+    // Give saves and session cleanup time to finish without trapping the player
+    // when the backend is unavailable. Pending chunks already have local backups.
+    await Promise.race([
+      (async () => {
+        await saveQueue;
+        await sessionReady;
+        await endSession();
+      })(),
+      new Promise((_, reject) => {
+        exitTimeout = setTimeout(() => reject(new Error('Exit cleanup timed out.')), 5000);
+      }),
+    ]);
   } catch (error) {
-    console.error('Could not exit:', error);
-    exitButton.disabled = false;
-    exitButton.textContent = 'Retry Exit to Home';
+    console.error('Could not finish exit cleanup:', error);
+  } finally {
+    clearTimeout(exitTimeout);
+    window.location.href = '/';
   }
 });
 

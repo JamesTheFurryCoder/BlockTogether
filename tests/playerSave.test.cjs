@@ -57,7 +57,7 @@ async function setup(t, initialSave = {}) {
   };
 }
 
-function startGame(store, fetchImpl = store.fetch) {
+function startGame(store, fetchImpl = store.fetch, config = {}) {
   const inputHandlers = new Map();
   const worldHandlers = new Map();
   const documentHandlers = new Map();
@@ -103,15 +103,23 @@ function startGame(store, fetchImpl = store.fetch) {
       const target = new URL(url);
       assert.equal(options ? JSON.parse(options.body).username : target.searchParams.get('username'), 'James');
       if (options) assert.equal(target.searchParams.has('username'), false);
+      if (target.pathname.startsWith('/api/sessions') && config.sessionFetch) {
+        return config.sessionFetch(url, options);
+      }
       if (target.pathname === '/api/sessions') return { ok: true, json: async () => ({ sessionId: 1 }) };
       if (target.pathname.startsWith('/api/sessions/') || target.pathname === '/api/events') return { ok: true, json: async () => ({}) };
       return fetchImpl(url, options);
     }, localStorage: store.localStorage,
     URLSearchParams, sessionStorage: { getItem: () => 'James' },
+    setTimeout: config.setTimeout || setTimeout,
+    clearTimeout: config.clearTimeout || clearTimeout,
     window: { addEventListener() {}, location: {} },
     document: {
+      pointerLockElement: {},
+      exitPointerLock() { this.pointerLockElement = null; },
       getElementById: id => aiElements.get(id),
-      createElement: () => ({ style: {}, children: [], addEventListener() {},
+      createElement: () => ({ style: {}, children: [], handlers: new Map(),
+        addEventListener(name, handler) { this.handlers.set(name, handler); },
         appendChild(child) { this.children.push(child); },
         setAttribute(name, value) { this[name] = value; } }),
       addEventListener: (name, handler) => documentHandlers.set(name, handler),
@@ -123,6 +131,8 @@ function startGame(store, fetchImpl = store.fetch) {
   store.useGenerator(context.game.generatedChunk);
   return Object.assign(context.game, {
     materials, blockTypes,
+    window: context.window, document: context.document,
+    exitButton: elements.find(element => element.textContent === 'Exit to Home'),
     palette: elements.find(element => element.className === 'block-palette'),
     pressKey(key, options = {}) {
       const event = { key, preventDefault() { this.defaultPrevented = true; }, ...options };
@@ -148,6 +158,81 @@ function startGame(store, fetchImpl = store.fetch) {
     },
   });
 }
+
+test('exit waits for session startup and pending saves before ending the session', async t => {
+  const store = await setup(t);
+  const sessionStarted = deferred();
+  const saveFinished = deferred();
+  const requests = [];
+  const game = startGame(store, async (url, options) => {
+    if (options) await saveFinished.promise;
+    return store.fetch(url, options);
+  }, {
+    sessionFetch: async (url, options) => {
+      requests.push(options.method);
+      if (options.method === 'POST') {
+        await sessionStarted.promise;
+        return { ok: true, json: async () => ({ sessionId: 42 }) };
+      }
+      assert.equal(new URL(url).pathname, '/api/sessions/42');
+      assert.equal(store.localStorage.getItem(backupKey), null);
+      return { ok: true, json: async () => ({}) };
+    },
+  });
+  await game.load(0, 0, 0);
+  game.breakBlock([0, 0, 0]);
+  const click = () => game.exitButton.handlers.get('click')({ stopPropagation() {} });
+  const exiting = click();
+  assert.equal(game.exitButton.disabled, true);
+  assert.equal(game.document.pointerLockElement, null);
+  await click();
+  assert.equal(game.window.location.href, undefined);
+  assert.deepEqual(requests, ['POST']);
+  saveFinished.resolve();
+  await game.waitForSaves();
+  assert.equal(game.window.location.href, undefined);
+  sessionStarted.resolve();
+  await exiting;
+  assert.deepEqual(requests, ['POST', 'PATCH']);
+  assert.equal(game.window.location.href, '/');
+});
+
+test('exit still returns home when session startup or cleanup fails', async t => {
+  for (const failingMethod of ['POST', 'PATCH']) {
+    const game = startGame(await setup(t), undefined, {
+      sessionFetch: async (url, options) => {
+        if (options.method === failingMethod) throw new Error('Backend unavailable');
+        return { ok: true, json: async () => ({ sessionId: 1 }) };
+      },
+    });
+    await game.exitButton.handlers.get('click')({ stopPropagation() {} });
+    assert.equal(game.window.location.href, '/');
+  }
+});
+
+test('exit times out stalled saves and keeps local backups for recovery', async t => {
+  const store = await setup(t);
+  let timeout;
+  let cleared = false;
+  const game = startGame(store, (url, options) => options
+    ? new Promise(() => {}) : store.fetch(url), {
+    setTimeout(callback, delay) {
+      assert.equal(delay, 5000);
+      timeout = callback;
+      return 1;
+    },
+    clearTimeout(id) { assert.equal(id, 1); cleared = true; },
+  });
+  await game.load(0, 0, 0);
+  game.breakBlock([0, 0, 0]);
+  const exiting = game.exitButton.handlers.get('click')({ stopPropagation() {} });
+  assert.equal(game.window.location.href, undefined);
+  timeout();
+  await exiting;
+  assert.equal(cleared, true);
+  assert.equal(game.window.location.href, '/');
+  assert.notEqual(store.localStorage.getItem(backupKey), null);
+});
 
 test('refresh recovers all queued chunk edits before SQLite writes finish', async t => {
   const untouched = Array(24 ** 3).fill(3);

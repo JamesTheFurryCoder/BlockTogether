@@ -11,6 +11,7 @@ module.exports = {
         playerhome: path.resolve(__dirname, 'game/player-home/playerhome.html'),
         mazegame: path.resolve(__dirname, 'game/mazegame.html'),
         arenashooter: path.resolve(__dirname, 'game/arenashooter.html'),
+        platformrunner: path.resolve(__dirname, 'game/platformrunner.html'),
       },
     },
   },
